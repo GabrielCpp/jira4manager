@@ -1,0 +1,24 @@
+.agents/runs/
+.agents/worktrees/
+.agents/workflows/
+.agents/operator/
+.agents/local.compose.yaml
+.agents/agents-context.json
+.agents/agents-context.*.json
+.agents/agents.mk
+
+# Cargo
+target/
+**/*.rs.bk
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Local data, secrets and unscrubbed fixtures
+.env
+.env.*
+*.local.json
+fixtures/raw/
+.lavish/
