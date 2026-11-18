@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tracker mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<style>
+  :root, :root[data-theme="dark"] {
+    --bg: #0e0e10;
+    --sidebar: #0a0a0c;
+    --panel: #151518;
+    --raised: #1b1b1f;
+    --hover: #1f1f24;
+    --selected: #24242b;
+    --border: #232328;
+    --border-strong: #2e2e35;
+    --text: #e4e4e7;
+    --text-2: #a1a1aa;
+    --muted: #71717a;
+    --accent: #7c6cf0;
+    --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+    --amber: #e5a50a;
+    --green: #3fb68b;
+    --red: #eb5757;
+    --blue: #4ea7fc;
+    --shadow: 0 16px 48px rgba(0,0,0,.55), 0 0 0 1px var(--border-strong);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --bg: #ffffff;
+    --sidebar: #f7f7f8;
+    --panel: #fbfbfc;
+    --raised: #ffffff;
+    --hover: #f1f1f3;
+    --selected: #ececf0;
+    --border: #e7e7ea;
+    --border-strong: #dcdce0;
+    --text: #18181b;
+    --text-2: #52525b;
+    --muted: #8b8b94;
+    --shadow: 0 16px 48px rgba(0,0,0,.14), 0 0 0 1px var(--border-strong);
+    color-scheme: light;
+  }
+  :root[data-density="comfortable"] { --row: 44px; --fs: 13.5px; }
+  :root, :root[data-density="compact"] { --row: 36px; --fs: 13px; }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 400 var(--fs)/1.45 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  svg { flex: none; display: block; }
+  .app { display: grid; grid-template-columns: 232px minmax(0, 1fr); height: 100vh; }
+  .app.no-sidebar { grid-template-columns: 0 minmax(0, 1fr); }
+  .app.no-sidebar .sidebar { visibility: hidden; }
+
+  .sidebar { background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+  .ws { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px; }
+  .ws-logo { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, var(--accent), #c084fc); display: grid; place-items: center; font-weight: 600; font-size: 11px; color: #fff; }
+  .ws-name { font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .icon-btn { width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; color: var(--text-2); cursor: pointer; }
+  .icon-btn:hover { background: var(--hover); color: var(--text); }
+  .search-row { display: flex; gap: 6px; padding: 4px 12px 10px; }
+  .search-pill { flex: 1; display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 7px; color: var(--muted); cursor: pointer; background: var(--panel); }
+  .search-pill:hover { border-color: var(--border-strong); color: var(--text-2); }
+  .search-pill span { flex: 1; }
+  kbd, .kbd { font: 500 10.5px/1 Inter, sans-serif; color: var(--muted); border: 1px solid var(--border-strong); border-radius: 4px; padding: 2px 4px; background: var(--raised); }
+  .nav { overflow: auto; padding: 0 8px 12px; flex: 1; }
+  .nav-item { display: flex; align-items: center; gap: 9px; height: 28px; padding: 0 8px; border-radius: 6px; color: var(--text-2); cursor: pointer; white-space: nowrap; }
+  .nav-item:hover { background: var(--hover); color: var(--text); }
+  .nav-item.active { background: var(--selected); color: var(--text); }
+  .nav-item .count { margin-left: auto; font-size: 11.5px; color: var(--muted); }
+  .nav-section { font-size: 11.5px; font-weight: 500; color: var(--muted); padding: 14px 8px 4px; display: flex; align-items: center; justify-content: space-between; }
+  .team-head { font-weight: 500; }
+  .team-dot { width: 16px; height: 16px; border-radius: 4px; display: grid; place-items: center; font-size: 9px; font-weight: 600; color: #fff; }
+  .chev { transition: transform .15s; color: var(--muted); }
+  .team.collapsed .chev { transform: rotate(-90deg); }
+  .team.collapsed .team-sub { display: none; }
+  .team-sub .nav-item { padding-left: 33px; }
+  .side-foot { border-top: 1px solid var(--border); padding: 10px 12px; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+
+  .main { display: flex; flex-direction: column; min-width: 0; position: relative; overflow: hidden; }
+  .topbar { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--border); flex: none; }
+  .crumb { display: flex; align-items: center; gap: 8px; font-weight: 500; white-space: nowrap; min-width: 0; }
+  .crumb .sep { color: var(--muted); }
+  .tabs { display: flex; gap: 2px; margin-left: 8px; }
+  .tab { height: 26px; padding: 0 10px; display: flex; align-items: center; border-radius: 6px; color: var(--text-2); cursor: pointer; border: 1px solid transparent; white-space: nowrap; }
+  .tab:hover { color: var(--text); background: var(--hover); }
+  .tab.active { color: var(--text); background: var(--raised); border-color: var(--border-strong); }
+  .spacer { flex: 1; }
+  .hamb { display: none; }
+  .toolbar { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid var(--border); flex: none; }
+  .chip { height: 26px; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border-radius: 6px; border: 1px solid var(--border); color: var(--text-2); cursor: pointer; white-space: nowrap; font-size: 12.5px; }
+  .chip:hover { border-color: var(--border-strong); color: var(--text); background: var(--hover); }
+  .chip.on { color: var(--text); background: var(--raised); border-color: var(--border-strong); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .seg > div { height: 24px; padding: 0 10px; display: flex; align-items: center; gap: 6px; color: var(--muted); cursor: pointer; font-size: 12.5px; white-space: nowrap; }
+  .seg > div + div { border-left: 1px solid var(--border); }
+  .seg > div.on { background: var(--raised); color: var(--text); }
+  .btn-primary { height: 26px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 6px; background: var(--accent); color: #fff; font-weight: 500; cursor: pointer; white-space: nowrap; font-size: 12.5px; border: 0; font-family: inherit; }
+  .btn-primary:hover { filter: brightness(1.1); }
+
+  .content { flex: 1; overflow: auto; position: relative; }
+  .group-head { position: sticky; top: 0; z-index: 2; height: 36px; display: flex; align-items: center; gap: 9px; padding: 0 14px 0 22px; background: var(--panel); border-bottom: 1px solid var(--border); font-weight: 500; }
+  .group-head .n { color: var(--muted); font-weight: 400; }
+  .group-head .plus { margin-left: auto; }
+  .row { height: var(--row); display: flex; align-items: center; gap: 10px; padding: 0 14px 0 22px; border-bottom: 1px solid var(--border); cursor: pointer; min-width: 0; }
+  .row:hover { background: var(--hover); }
+  .row.sel { background: var(--selected); box-shadow: inset 2px 0 0 var(--accent); }
+  .row .id { width: 66px; white-space: nowrap; color: var(--muted); font-size: 12px; flex: none; font-variant-numeric: tabular-nums; }
+  .row .title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .meta { display: flex; align-items: center; gap: 6px; flex: none; }
+  .row .date { width: 48px; text-align: right; color: var(--muted); font-size: 12px; flex: none; }
+  .label { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 7px; border: 1px solid var(--border-strong); border-radius: 999px; font-size: 11.5px; color: var(--text-2); white-space: nowrap; }
+  .label i { width: 7px; height: 7px; border-radius: 50%; display: block; }
+  .proj { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 7px; border: 1px solid var(--border-strong); border-radius: 999px; font-size: 11.5px; color: var(--text-2); white-space: nowrap; }
+  .avatar { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 9.5px; font-weight: 600; color: #fff; flex: none; }
+  .avatar.none { border: 1px dashed var(--muted); background: transparent; }
+
+  .board { display: flex; gap: 12px; padding: 14px; height: 100%; overflow-x: auto; align-items: flex-start; }
+  .col { width: 290px; flex: none; display: flex; flex-direction: column; gap: 8px; max-height: 100%; }
+  .col-head { display: flex; align-items: center; gap: 8px; padding: 4px 4px 6px; font-weight: 500; }
+  .col-head .n { color: var(--muted); font-weight: 400; }
+  .col-body { display: flex; flex-direction: column; gap: 8px; overflow: auto; padding-bottom: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
+  .card:hover { border-color: var(--border-strong); background: var(--raised); }
+  .card.sel { border-color: var(--accent); }
+  .card-top { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12px; }
+  .card-title { display: flex; gap: 8px; align-items: flex-start; }
+  .card-title span { overflow-wrap: anywhere; }
+  .card-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+  .detail { position: absolute; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: var(--bg); border-left: 1px solid var(--border-strong); box-shadow: -24px 0 48px rgba(0,0,0,.35); display: none; flex-direction: column; z-index: 5; }
+  .detail.open { display: flex; }
+  .detail-top { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 18px; border-bottom: 1px solid var(--border); color: var(--text-2); flex: none; }
+  .detail-body { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 230px; min-height: 0; }
+  .detail-main { overflow: auto; padding: 28px 36px 40px; }
+  .detail-main h1 { font-size: 22px; font-weight: 600; margin: 0 0 12px; letter-spacing: -.01em; overflow-wrap: anywhere; }
+  .desc { color: var(--text-2); line-height: 1.6; }
+  .desc p { margin: 0 0 10px; }
+  .sub-head { margin: 28px 0 8px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .sub-row { display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 8px; border-radius: 6px; }
+  .sub-row:hover { background: var(--hover); }
+  .sub-row .id { color: var(--muted); font-size: 12px; width: 66px; flex: none; white-space: nowrap; }
+  .activity { margin-top: 28px; border-top: 1px solid var(--border); padding-top: 18px; }
+  .act { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 12.5px; padding: 6px 0; }
+  .act b { color: var(--text-2); font-weight: 500; }
+  .comment-box { margin-top: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); padding: 12px; color: var(--muted); min-height: 64px; }
+  .props { border-left: 1px solid var(--border); padding: 18px 14px; overflow: auto; background: var(--panel); }
+  .prop { display: grid; grid-template-columns: 74px minmax(0, 1fr); align-items: center; gap: 6px; min-height: 32px; }
+  .prop .k { color: var(--muted); font-size: 12px; }
+  .prop .v { display: flex; align-items: center; gap: 7px; padding: 4px 6px; border-radius: 6px; cursor: pointer; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prop .v:hover { background: var(--hover); }
+  .props hr { border: 0; border-top: 1px solid var(--border); margin: 12px 0; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: flex-start; justify-content: center; padding: 12vh 16px 16px; z-index: 20; }
+  .overlay.open { display: flex; }
+  .palette { width: min(620px, 100%); background: var(--raised); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .palette input { width: 100%; height: 52px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); font: 400 15px Inter, sans-serif; padding: 0 18px; outline: none; }
+  .p-list { max-height: 360px; overflow: auto; padding: 6px; }
+  .p-sec { font-size: 11.5px; color: var(--muted); padding: 8px 10px 4px; }
+  .p-item { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 7px; cursor: pointer; color: var(--text-2); }
+  .p-item.on { background: var(--selected); color: var(--text); }
+  .p-item .r { margin-left: auto; display: flex; gap: 4px; }
+  .modal { width: min(660px, 100%); background: var(--raised); border-radius: 12px; box-shadow: var(--shadow); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .modal-top { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 12.5px; }
+  .modal input, .modal textarea, .modal select { font-family: inherit; color: var(--text); background: transparent; border: 0; outline: none; }
+  .modal input { font-size: 18px; font-weight: 500; padding: 6px 0; }
+  .modal textarea { font-size: 13.5px; min-height: 90px; resize: vertical; color: var(--text-2); }
+  .modal-props { display: flex; gap: 6px; flex-wrap: wrap; }
+  .modal-props select { height: 26px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 0 6px; font-size: 12.5px; background: var(--panel); }
+  .modal-foot { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; color: var(--muted); font-size: 12px; }
+
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--raised); box-shadow: var(--shadow); border-radius: 8px; padding: 9px 14px; display: none; align-items: center; gap: 8px; z-index: 30; white-space: nowrap; }
+  .toast.show { display: flex; }
+
+  .knobs { position: fixed; right: 16px; bottom: 16px; z-index: 15; }
+  .knobs-btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; background: var(--raised); box-shadow: var(--shadow); color: var(--text-2); cursor: pointer; font-size: 12.5px; }
+  .knobs-panel { display: none; position: absolute; right: 0; bottom: 40px; width: 280px; background: var(--raised); box-shadow: var(--shadow); border-radius: 12px; padding: 14px; }
+  .knobs.open .knobs-panel { display: block; }
+  .knobs fieldset { border: 0; padding: 0; margin: 0 0 12px; }
+  .knobs legend { font-size: 11.5px; color: var(--muted); margin-bottom: 6px; }
+  .knobs label { display: inline-flex; align-items: center; gap: 6px; margin: 0 10px 6px 0; font-size: 12.5px; color: var(--text-2); cursor: pointer; }
+  .swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+  .knobs .note { font-size: 11.5px; color: var(--muted); margin: 4px 0 10px; }
+  .knobs button { width: 100%; justify-content: center; }
+
+  @media (max-width: 860px) {
+    .app, .app.no-sidebar { grid-template-columns: minmax(0, 1fr); }
+    .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 260px; z-index: 25; transform: translateX(-100%); transition: transform .2s; visibility: visible !important; }
+    .app.mobile-nav .sidebar { transform: none; box-shadow: var(--shadow); }
+    .hamb { display: grid; }
+    .tabs, .row .meta .label, .row .meta .proj, .hide-sm { display: none; }
+    .detail-body { grid-template-columns: minmax(0, 1fr); }
+    .props { display: none; }
+    .detail-main { padding: 20px 18px 32px; }
+    .row { padding-left: 14px; }
+    .group-head { padding-left: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="sidebar">
+    <div class="ws">
+      <div class="ws-logo">S</div>
+      <div class="ws-name">Stablemate</div>
+      <div class="icon-btn" title="New issue (C)" data-act="create">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M11.5 2.5l2 2L6 12H4v-2l7.5-7.5z"/><path d="M2.5 14h11"/></svg>
+      </div>
+    </div>
+    <div class="search-row">
+      <div class="search-pill" data-act="palette">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+        <span>Search</span><span class="kbd" style="flex:none">Ctrl K</span>
+      </div>
+    </div>
+    <nav class="nav" id="nav">
+      <div class="nav-item" data-nav="inbox">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 9l1.8-5.2A1 1 0 0 1 4.7 3h6.6a1 1 0 0 1 .9.8L14 9v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9z"/><path d="M2 9h3.5l1 1.5h3l1-1.5H14"/></svg>
+        Inbox <span class="count">3</span>
+      </div>
+      <div class="nav-item" data-nav="mine">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2"/></svg>
+        My issues
+      </div>
+      <div class="nav-item" data-nav="views">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/></svg>
+        Views
+      </div>
+      <div class="nav-section">Your teams</div>
+      <div id="teams"></div>
+    </nav>
+    <div class="side-foot">
+      <div class="avatar" style="background:#7c6cf0">Y</div>
+      <span>You</span>
+      <span class="spacer"></span>
+      <div class="icon-btn" title="Toggle theme" data-act="theme">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M13.5 9.5A5.5 5.5 0 1 1 6.5 2.5a4.5 4.5 0 0 0 7 7z"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="icon-btn hamb" data-act="mobile-nav">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></svg>
+      </div>
+      <div class="crumb"><span class="team-dot" id="crumb-dot"></span><span id="crumb-team"></span><span class="sep">›</span><span id="crumb-page">Issues</span></div>
+      <div class="tabs" id="tabs">
+        <div class="tab active" data-tab="all">All issues</div>
+        <div class="tab" data-tab="active">Active</div>
+        <div class="tab" data-tab="backlog">Backlog</div>
+      </div>
+      <span class="spacer"></span>
+      <div class="icon-btn hide-sm" title="Notifications">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 11V7a4 4 0 1 1 8 0v4l1.2 1.5H2.8L4 11z"/><path d="M6.5 14h3"/></svg>
+      </div>
+      <div class="btn-primary" data-act="create">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+        New issue
+      </div>
+    </header>
+    <div class="toolbar">
+      <div class="chip" id="filter-chip">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 4h11M4.5 8h7M6.5 12h3"/></svg>
+        Filter
+      </div>
+      <div class="chip on hide-sm" id="mine-chip" style="display:none">Assignee: You <span style="color:var(--muted)">×</span></div>
+      <span class="spacer"></span>
+      <div class="seg" id="seg" data-lavish-revision="r1">
+        <div class="on" data-view="list" title="List (B)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></svg>
+          List
+        </div>
+        <div data-view="board" title="Board (B)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="3" height="11" rx="1"/><rect x="6.5" y="2.5" width="3" height="7" rx="1"/><rect x="10.5" y="2.5" width="3" height="9" rx="1"/></svg>
+          Board
+        </div>
+      </div>
+      <div class="chip hide-sm">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h10M3 11h10"/><circle cx="6" cy="5" r="1.6" fill="var(--bg)"/><circle cx="10" cy="11" r="1.6" fill="var(--bg)"/></svg>
+        Display
+      </div>
+    </div>
+    <div class="content" id="content"></div>
+
+    <section class="detail" id="detail">
+      <div class="detail-top">
+        <span id="d-crumb"></span>
+        <span class="spacer"></span>
+        <span class="kbd hide-sm">J</span><span class="kbd hide-sm">K</span>
+        <div class="icon-btn" data-act="close-detail" title="Close (Esc)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </div>
+      </div>
+      <div class="detail-body">
+        <div class="detail-main" id="d-main"></div>
+        <aside class="props" id="d-props"></aside>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="overlay" id="palette-ov">
+  <div class="palette">
+    <input id="p-input" placeholder="Type a command or search issues…" autocomplete="off">
+    <div class="p-list" id="p-list"></div>
+  </div>
+</div>
+
+<div class="overlay" id="create-ov">
+  <form class="modal" id="create-form">
+    <div class="modal-top"><span class="team-dot" id="c-dot"></span><span id="c-team"></span><span>›</span><span>New issue</span></div>
+    <input id="c-title" placeholder="Issue title" required>
+    <textarea id="c-desc" placeholder="Add description…"></textarea>
+    <div class="modal-props">
+      <select id="c-status"></select>
+      <select id="c-priority"></select>
+      <select id="c-assignee"></select>
+    </div>
+    <div class="modal-foot">
+      <span>Ctrl Enter to create</span>
+      <span class="spacer"></span>
+      <button type="submit" class="btn-primary">Create issue</button>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="application/json" data-lavish-revisions>
+[{ "id": "r1", "label": "Round 1", "timestamp": "2026-11-17T17:10:00Z", "summary": "Labeled List | Board switch in the toolbar and a Board link under each team; fixed a blank page below 860px wide" }]
+</script>
+
+<div class="knobs" id="knobs">
+  <div class="knobs-panel">
+    <form id="knobs-form" data-lavish-question="design-knobs">
+      <fieldset>
+        <legend>Accent</legend>
+        <label><input type="radio" name="accent" value="#7c6cf0" checked><span class="swatch" style="background:#7c6cf0"></span>Violet</label>
+        <label><input type="radio" name="accent" value="#3fb68b"><span class="swatch" style="background:#3fb68b"></span>Green</label>
+        <label><input type="radio" name="accent" value="#4ea7fc"><span class="swatch" style="background:#4ea7fc"></span>Blue</label>
+        <label><input type="radio" name="accent" value="#f2994a"><span class="swatch" style="background:#f2994a"></span>Orange</label>
+      </fieldset>
+      <fieldset>
+        <legend>Density</legend>
+        <label><input type="radio" name="density" value="compact" checked>Compact</label>
+        <label><input type="radio" name="density" value="comfortable">Comfortable</label>
+      </fieldset>
+      <fieldset>
+        <legend>Theme</legend>
+        <label><input type="radio" name="theme" value="dark" checked>Dark</label>
+        <label><input type="radio" name="theme" value="light">Light</label>
+      </fieldset>
+      <fieldset>
+        <legend>Sidebar</legend>
+        <label><input type="radio" name="sidebar" value="shown" checked>Shown</label>
+        <label><input type="radio" name="sidebar" value="hidden">Hidden</label>
+      </fieldset>
+      <div class="note">Changes apply live. Queue them to keep them in the next revision.</div>
+      <button type="submit" class="btn-primary">Queue these choices</button>
+    </form>
+  </div>
+  <div class="knobs-btn" data-act="knobs">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h10M3 11h10"/><circle cx="6" cy="5" r="1.6" fill="var(--raised)"/><circle cx="10" cy="11" r="1.6" fill="var(--raised)"/></svg>
+    Design knobs
+  </div>
+</div>
+
+<script>
+const TEAMS = [
+  { key: 'CORE', name: 'Core', color: '#7c6cf0' },
+  { key: 'WRK', name: 'Workhorse', color: '#3fb68b' },
+  { key: 'OST', name: 'Ostler', color: '#4ea7fc' },
+  { key: 'GRM', name: 'Groom', color: '#f2994a' },
+];
+const STATUSES = [
+  { key: 'progress', name: 'In Progress' },
+  { key: 'review', name: 'In Review' },
+  { key: 'todo', name: 'Todo' },
+  { key: 'backlog', name: 'Backlog' },
+  { key: 'done', name: 'Done' },
+];
+const PRIORITIES = ['No priority', 'Urgent', 'High', 'Medium', 'Low'];
+const PEOPLE = {
+  you: { name: 'You', color: '#7c6cf0' },
+  ada: { name: 'Ada', color: '#d9467a' },
+  milo: { name: 'Milo', color: '#2f9e8f' },
+  rin: { name: 'Rin', color: '#c27c0e' },
+  sam: { name: 'Sam', color: '#4a72d9' },
+};
+const LABELS = {
+  Bug: '#eb5757', Feature: '#a78bfa', Improvement: '#4ea7fc', Docs: '#8b8b94', Chore: '#e5a50a',
+};
+let issues = [
+  ['CORE-151', 'Private-name check reports the line, not the file', 'progress', 2, ['Improvement'], 'Agent commit checks', 'you', 'Nov 14'],
+  ['CORE-149', 'Story id trailer survives a squash', 'review', 3, ['Bug'], 'Agent commit checks', 'ada', 'Nov 13'],
+  ['CORE-153', 'Lint gate runs ty and basedpyright in one pass', 'todo', 3, ['Improvement'], 'Agent commit checks', 'milo', 'Nov 15'],
+  ['CORE-155', 'Drop the sections alias on WriterCommandState', 'backlog', 4, ['Chore'], null, null, 'Nov 16'],
+  ['CORE-144', 'Resolve workspace members from the staged tree', 'done', 2, ['Bug'], 'Agent commit checks', 'you', 'Nov 10'],
+  ['CORE-146', 'Commit hook rejects a subject over 72 characters', 'done', 3, ['Feature'], 'Agent commit checks', 'sam', 'Nov 11'],
+  ['WRK-212', 'Operator gate text reaches the next agent prompt', 'progress', 1, ['Bug'], 'Coder sub-flows', 'you', 'Nov 15'],
+  ['WRK-208', 'Docs step runs as one agent', 'progress', 2, ['Feature'], 'Coder sub-flows', 'rin', 'Nov 12'],
+  ['WRK-205', 'Give each new book-commit refusal its own fix turn', 'review', 2, ['Bug'], 'Service books', 'you', 'Nov 11'],
+  ['WRK-214', 'Budget ceiling stops a run before the next lap', 'todo', 2, ['Feature'], 'Coder sub-flows', 'milo', 'Nov 16'],
+  ['WRK-215', 'Resume a stopped run at the QA state', 'todo', 3, ['Improvement'], null, 'sam', 'Nov 16'],
+  ['WRK-190', 'Parallel books share one Compose project', 'backlog', 3, ['Bug'], 'Service books', null, 'Nov 02'],
+  ['WRK-198', 'Lap cap parks on an operator gate instead of failing', 'backlog', 2, ['Feature'], 'Service books', null, 'Nov 08'],
+  ['WRK-201', 'Replay a book a commit-fix turn changed', 'done', 2, ['Bug'], 'Service books', 'you', 'Nov 17'],
+  ['OST-88', 'book search ranks decisions above endpoints', 'progress', 3, ['Improvement'], 'Service books', 'ada', 'Nov 13'],
+  ['OST-91', 'book check follows repo:// pointers', 'todo', 2, ['Feature'], 'Service books', 'ada', 'Nov 15'],
+  ['OST-85', 'Explore reaches depth 4 over permitted actions', 'review', 3, ['Feature'], 'Service books', 'rin', 'Nov 09'],
+  ['OST-93', 'book missing lists routes by name, not a count', 'todo', 4, ['Improvement'], 'Service books', null, 'Nov 16'],
+  ['OST-79', 'Seeded multi-user world for journey replay', 'backlog', 3, ['Feature'], null, null, 'Nov 04'],
+  ['OST-74', 'gRPC endpoints in the service book', 'done', 2, ['Feature'], 'Service books', 'milo', 'Nov 10'],
+  ['GRM-41', 'Run timeline shows the cost of each node', 'progress', 2, ['Feature'], 'Groom visibility', 'sam', 'Nov 14'],
+  ['GRM-43', 'Feed groups notifications by run', 'todo', 3, ['Improvement'], 'Groom visibility', 'you', 'Nov 16'],
+  ['GRM-38', 'Dashboard loads with no runs on record', 'done', 1, ['Bug'], 'Groom visibility', 'sam', 'Nov 07'],
+].map(([id, title, status, priority, labels, project, assignee, date]) => ({ id, title, status, priority, labels, project, assignee, date }));
+
+const state = { team: 'CORE', tab: 'all', view: 'list', mine: false, sel: 0, openId: null, collapsed: {} };
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function statusIcon(key, size = 14) {
+  const c = 7, r = 5.5;
+  const ring = (stroke, dash = '') => `<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${stroke}" stroke-width="1.5" ${dash}/>`;
+  let inner = '';
+  if (key === 'backlog') inner = ring('var(--muted)', 'stroke-dasharray="2 2"');
+  else if (key === 'todo') inner = ring('var(--text-2)');
+  else if (key === 'progress') inner = ring('var(--amber)') + `<path d="M7 7V3.5A3.5 3.5 0 0 1 7 10.5Z" fill="var(--amber)"/>`;
+  else if (key === 'review') inner = ring('var(--green)') + `<path d="M7 7V3.5A3.5 3.5 0 1 1 3.5 7Z" fill="var(--green)"/>`;
+  else if (key === 'done') inner = `<circle cx="7" cy="7" r="6.25" fill="var(--accent)"/><path d="M4.4 7.2l1.8 1.8 3.4-3.6" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 14 14">${inner}</svg>`;
+}
+function priorityIcon(p) {
+  if (p === 1) return `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="3" fill="#f2994a"/><path d="M7 3.8v4" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><circle cx="7" cy="10.2" r=".9" fill="#fff"/></svg>`;
+  if (p === 0) return `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7h2M6 7h2M10 7h2" stroke="var(--muted)" stroke-width="1.5"/></svg>`;
+  const filled = { 2: 3, 3: 2, 4: 1 }[p];
+  const bars = [[2, 8, 3], [6, 5, 6], [10, 2, 9]].map(([x, y, h], i) =>
+    `<rect x="${x}" y="${y}" width="2.4" height="${h}" rx=".6" fill="${i < filled ? 'var(--text-2)' : 'var(--border-strong)'}"/>`).join('');
+  return `<svg width="14" height="14" viewBox="0 0 14 14">${bars}</svg>`;
+}
+function avatar(key) {
+  if (!key) return `<div class="avatar none" title="Unassigned"></div>`;
+  const p = PEOPLE[key];
+  return `<div class="avatar" style="background:${p.color}" title="${p.name}">${p.name[0]}</div>`;
+}
+function labelPill(l) { return `<span class="label"><i style="background:${LABELS[l]}"></i>${l}</span>`; }
+function team(key) { return TEAMS.find((t) => t.key === key); }
+
+function visible() {
+  return issues.filter((i) => i.id.startsWith(state.team + '-'))
+    .filter((i) => state.tab === 'all' || (state.tab === 'active' ? ['progress', 'review', 'todo'].includes(i.status) : i.status === 'backlog'))
+    .filter((i) => !state.mine || i.assignee === 'you');
+}
+function ordered() {
+  const v = visible();
+  return STATUSES.flatMap((s) => state.collapsed[s.key] && state.view === 'list' ? [] : v.filter((i) => i.status === s.key).sort((a, b) => (a.priority || 9) - (b.priority || 9)));
+}
+
+function renderTeams() {
+  $('#teams').innerHTML = TEAMS.map((t) => `
+    <div class="team ${t.key === state.team ? '' : 'collapsed'}" data-team="${t.key}">
+      <div class="nav-item team-head" data-team-toggle="${t.key}">
+        <span class="team-dot" style="background:${t.color}">${t.name[0]}</span>${t.name}
+        <svg class="chev" width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+      </div>
+      <div class="team-sub">
+        <div class="nav-item ${t.key === state.team && !state.mine && state.view === 'list' ? 'active' : ''}" data-team-issues="${t.key}">
+          <svg width="14" height="14" viewBox="0 0 14 14">${statusIcon('progress', 14).replace(/^<svg[^>]*>|<\/svg>$/g, '')}</svg>Issues
+        </div>
+        <div class="nav-item ${t.key === state.team && !state.mine && state.view === 'board' ? 'active' : ''}" data-team-board="${t.key}" data-lavish-revision="r1">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2.5" y="2.5" width="3" height="11" rx="1"/><rect x="6.5" y="2.5" width="3" height="7" rx="1"/><rect x="10.5" y="2.5" width="3" height="9" rx="1"/></svg>Board
+        </div>
+        <div class="nav-item"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13 2.5v2.5h-2.5"/></svg>Cycles</div>
+        <div class="nav-item"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 2.5h7l3 3v8H3z"/></svg>Projects</div>
+      </div>
+    </div>`).join('');
+  document.querySelectorAll('[data-nav]').forEach((n) => n.classList.toggle('active', n.dataset.nav === 'mine' && state.mine));
+}
+
+function renderList() {
+  const v = visible();
+  const flat = ordered();
+  return STATUSES.map((s) => {
+    const items = v.filter((i) => i.status === s.key).sort((a, b) => (a.priority || 9) - (b.priority || 9));
+    if (!items.length) return '';
+    const collapsed = state.collapsed[s.key];
+    return `<div class="group-head" data-group="${s.key}">
+        <svg class="chev" width="10" height="10" viewBox="0 0 10 10" style="${collapsed ? 'transform:rotate(-90deg)' : ''}"><path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+        ${statusIcon(s.key)}<span>${s.name}</span><span class="n">${items.length}</span>
+        <div class="icon-btn plus" data-act="create" data-status="${s.key}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg></div>
+      </div>` + (collapsed ? '' : items.map((i) => `
+      <div class="row ${flat.indexOf(i) === state.sel ? 'sel' : ''}" data-id="${i.id}">
+        ${priorityIcon(i.priority)}
+        <span class="id">${i.id}</span>
+        ${statusIcon(i.status)}
+        <span class="title">${esc(i.title)}</span>
+        <span class="meta">${i.labels.map(labelPill).join('')}${i.project ? `<span class="proj">${esc(i.project)}</span>` : ''}</span>
+        ${avatar(i.assignee)}
+        <span class="date">${i.date}</span>
+      </div>`).join(''));
+  }).join('') || `<div style="padding:60px;text-align:center;color:var(--muted)">No issues match this view.</div>`;
+}
+
+function renderBoard() {
+  const v = visible();
+  const flat = ordered();
+  return `<div class="board">` + STATUSES.map((s) => {
+    const items = v.filter((i) => i.status === s.key).sort((a, b) => (a.priority || 9) - (b.priority || 9));
+    return `<div class="col">
+      <div class="col-head">${statusIcon(s.key)}<span>${s.name}</span><span class="n">${items.length}</span><span class="spacer"></span>
+        <div class="icon-btn" data-act="create" data-status="${s.key}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg></div></div>
+      <div class="col-body">${items.map((i) => `
+        <div class="card ${flat.indexOf(i) === state.sel ? 'sel' : ''}" data-id="${i.id}">
+          <div class="card-top"><span>${i.id}</span>${avatar(i.assignee)}</div>
+          <div class="card-title">${statusIcon(i.status)}<span>${esc(i.title)}</span></div>
+          <div class="card-foot">${priorityIcon(i.priority)}${i.labels.map(labelPill).join('')}${i.project ? `<span class="proj">${esc(i.project)}</span>` : ''}</div>
+        </div>`).join('')}</div>
+    </div>`;
+  }).join('') + `</div>`;
+}
+
+function render() {
+  const t = team(state.team);
+  $('#crumb-dot').style.background = t.color;
+  $('#crumb-dot').textContent = t.name[0];
+  $('#crumb-team').textContent = state.mine ? 'You' : t.name;
+  $('#crumb-page').textContent = state.mine ? 'My issues' : 'Issues';
+  $('#mine-chip').style.display = state.mine ? '' : 'none';
+  document.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('active', x.dataset.tab === state.tab));
+  document.querySelectorAll('[data-view]').forEach((x) => x.classList.toggle('on', x.dataset.view === state.view));
+  renderTeams();
+  $('#content').innerHTML = state.view === 'list' ? renderList() : renderBoard();
+  renderDetail();
+}
+
+function renderDetail() {
+  const d = $('#detail');
+  const i = issues.find((x) => x.id === state.openId);
+  d.classList.toggle('open', !!i);
+  if (!i) return;
+  const t = team(i.id.split('-')[0]);
+  const st = STATUSES.find((s) => s.key === i.status);
+  const siblings = issues.filter((x) => x.project && x.project === i.project && x.id !== i.id).slice(0, 3);
+  $('#d-crumb').innerHTML = `<span style="display:inline-flex;align-items:center;gap:8px"><span class="team-dot" style="background:${t.color}">${t.name[0]}</span>${t.name} › ${i.id}</span>`;
+  $('#d-main').innerHTML = `
+    <h1>${esc(i.title)}</h1>
+    <div class="desc">${i.desc ? `<p>${esc(i.desc)}</p>` : `<p>When this lands, the person running the workflow sees the result without opening a log. Today they find out only after a run stops.</p>
+      <p><b style="color:var(--text)">Done when</b> the behaviour shows in the running system and the book states it.</p>`}</div>
+    ${siblings.length ? `<div class="sub-head">Related in ${esc(i.project)} <span style="color:var(--muted);font-weight:400">${siblings.length}</span></div>
+      ${siblings.map((s) => `<div class="sub-row" data-id="${s.id}">${statusIcon(s.status)}<span class="id">${s.id}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title)}</span>${avatar(s.assignee)}</div>`).join('')}` : ''}
+    <div class="activity">
+      <div class="sub-head" style="margin-top:0">Activity</div>
+      <div class="act">${avatar('you')}<span><b>You</b> created the issue · ${i.date}</span></div>
+      ${i.status !== 'backlog' && i.status !== 'todo' ? `<div class="act">${avatar(i.assignee || 'you')}<span><b>${PEOPLE[i.assignee || 'you'].name}</b> moved from Todo to ${st.name} · 2d ago</span></div>` : ''}
+      ${i.status === 'done' ? `<div class="act">${statusIcon('done')}<span>Closed by commit <b>fix(${t.name.toLowerCase()}): ${esc(i.title.toLowerCase())}</b></span></div>` : ''}
+      <div class="comment-box">Leave a comment…</div>
+    </div>`;
+  $('#d-props').innerHTML = `
+    <div class="prop"><span class="k">Status</span><span class="v">${statusIcon(i.status)}${st.name}</span></div>
+    <div class="prop"><span class="k">Priority</span><span class="v">${priorityIcon(i.priority)}${PRIORITIES[i.priority]}</span></div>
+    <div class="prop"><span class="k">Assignee</span><span class="v">${avatar(i.assignee)}${i.assignee ? PEOPLE[i.assignee].name : 'Unassigned'}</span></div>
+    <hr>
+    <div class="prop"><span class="k">Labels</span><span class="v" style="flex-wrap:wrap">${i.labels.map(labelPill).join('') || '<span style="color:var(--muted)">Add label</span>'}</span></div>
+    <div class="prop"><span class="k">Project</span><span class="v">${i.project ? esc(i.project) : '<span style="color:var(--muted)">Add to project</span>'}</span></div>
+    <div class="prop"><span class="k">Cycle</span><span class="v">Cycle 24</span></div>
+    <hr>
+    <div class="prop"><span class="k">Story</span><span class="v" style="color:var(--text-2)">${i.id}</span></div>
+    <div class="prop"><span class="k">Branch</span><span class="v" style="color:var(--text-2)">${i.id.toLowerCase()}-${i.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 18)}</span></div>`;
+}
+
+function select(delta) {
+  const flat = ordered();
+  if (!flat.length) return;
+  state.sel = Math.max(0, Math.min(flat.length - 1, state.sel + delta));
+  if (state.openId) state.openId = flat[state.sel].id;
+  render();
+  document.querySelector('.row.sel, .card.sel')?.scrollIntoView({ block: 'nearest' });
+}
+function openIssue(id) {
+  state.openId = id;
+  const idx = ordered().findIndex((i) => i.id === id);
+  if (idx >= 0) state.sel = idx;
+  render();
+}
+
+let toastTimer;
+function toast(html) {
+  const t = $('#toast');
+  t.innerHTML = html;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+const COMMANDS = [
+  { name: 'Create new issue', keys: ['C'], run: () => openCreate() },
+  { name: 'Switch to board view', keys: ['B'], run: () => setView('board') },
+  { name: 'Switch to list view', keys: ['B'], run: () => setView('list') },
+  { name: 'Go to my issues', keys: ['G', 'M'], run: () => { state.mine = true; state.sel = 0; render(); } },
+  { name: 'Toggle theme', keys: [], run: () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark') },
+  ...TEAMS.map((t) => ({ name: `Go to ${t.name} issues`, keys: [], run: () => { state.team = t.key; state.mine = false; state.sel = 0; state.openId = null; render(); } })),
+];
+let pItems = [], pSel = 0;
+function openPalette() {
+  $('#palette-ov').classList.add('open');
+  $('#p-input').value = '';
+  renderPalette();
+  setTimeout(() => $('#p-input').focus(), 0);
+}
+function renderPalette() {
+  const q = $('#p-input').value.trim().toLowerCase();
+  const cmds = COMMANDS.filter((c) => c.name.toLowerCase().includes(q));
+  const hits = q ? issues.filter((i) => (i.id + ' ' + i.title).toLowerCase().includes(q)).slice(0, 6) : [];
+  pItems = [...cmds.map((c) => ({ kind: 'cmd', c })), ...hits.map((i) => ({ kind: 'issue', i }))];
+  pSel = Math.min(pSel, Math.max(0, pItems.length - 1));
+  let n = -1;
+  const item = (inner, r = '') => { n++; return `<div class="p-item ${n === pSel ? 'on' : ''}" data-p="${n}">${inner}<span class="r">${r}</span></div>`; };
+  $('#p-list').innerHTML =
+    (cmds.length ? `<div class="p-sec">Commands</div>` + cmds.map((c) => item(`<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4l4 4-4 4"/></svg>${c.name}`, c.keys.map((k) => `<span class="kbd">${k}</span>`).join(''))).join('') : '') +
+    (hits.length ? `<div class="p-sec">Issues</div>` + hits.map((i) => item(`${statusIcon(i.status)}<span style="color:var(--muted);width:62px;font-size:12px">${i.id}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.title)}</span>`)).join('') : '') +
+    (!pItems.length ? `<div style="padding:24px;text-align:center;color:var(--muted)">No results</div>` : '');
+}
+function runPalette(idx) {
+  const it = pItems[idx];
+  if (!it) return;
+  $('#palette-ov').classList.remove('open');
+  if (it.kind === 'cmd') it.c.run();
+  else { state.team = it.i.id.split('-')[0]; state.mine = false; state.tab = 'all'; openIssue(it.i.id); }
+}
+
+function fillSelect(sel, opts, value) {
+  sel.innerHTML = opts.map(([v, l]) => `<option value="${v}" ${v === value ? 'selected' : ''}>${l}</option>`).join('');
+}
+function openCreate(status = 'todo') {
+  const t = team(state.team);
+  $('#c-dot').style.background = t.color;
+  $('#c-dot').textContent = t.name[0];
+  $('#c-team').textContent = t.name;
+  fillSelect($('#c-status'), STATUSES.map((s) => [s.key, s.name]), status);
+  fillSelect($('#c-priority'), PRIORITIES.map((p, i) => [String(i), p]), '0');
+  fillSelect($('#c-assignee'), [['', 'Unassigned'], ...Object.entries(PEOPLE).map(([k, p]) => [k, p.name])], '');
+  $('#c-title').value = '';
+  $('#c-desc').value = '';
+  $('#create-ov').classList.add('open');
+  setTimeout(() => $('#c-title').focus(), 0);
+}
+$('#create-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const title = $('#c-title').value.trim();
+  if (!title) return;
+  const nums = issues.filter((i) => i.id.startsWith(state.team + '-')).map((i) => +i.id.split('-')[1]);
+  const id = `${state.team}-${Math.max(0, ...nums) + 1}`;
+  issues.push({ id, title, desc: $('#c-desc').value.trim(), status: $('#c-status').value, priority: +$('#c-priority').value, labels: [], project: null, assignee: $('#c-assignee').value || null, date: 'Nov 17' });
+  $('#create-ov').classList.remove('open');
+  state.mine = false;
+  if (state.tab !== 'all') state.tab = 'all';
+  render();
+  toast(`${statusIcon($('#c-status').value)}<b>${id}</b> created`);
+});
+
+function setView(v) { state.view = v; render(); }
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  const r = document.querySelector(`#knobs-form input[name=theme][value=${t}]`);
+  if (r) r.checked = true;
+}
+function anyOverlay() { return document.querySelector('.overlay.open'); }
+
+document.addEventListener('click', (e) => {
+  const p = e.target.closest('[data-p]');
+  if (p) return runPalette(+p.dataset.p);
+  if (e.target.classList.contains('overlay')) return e.target.classList.remove('open');
+  const act = e.target.closest('[data-act]');
+  if (act) {
+    const a = act.dataset.act;
+    if (a === 'create') openCreate(act.dataset.status || 'todo');
+    if (a === 'palette') openPalette();
+    if (a === 'theme') setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+    if (a === 'close-detail') { state.openId = null; render(); }
+    if (a === 'mobile-nav') $('#app').classList.toggle('mobile-nav');
+    if (a === 'knobs') $('#knobs').classList.toggle('open');
+    return;
+  }
+  const g = e.target.closest('[data-group]');
+  if (g) { state.collapsed[g.dataset.group] = !state.collapsed[g.dataset.group]; return render(); }
+  const row = e.target.closest('[data-id]');
+  if (row) return openIssue(row.dataset.id);
+  const tab = e.target.closest('[data-tab]');
+  if (tab) { state.tab = tab.dataset.tab; state.sel = 0; return render(); }
+  const view = e.target.closest('[data-view]');
+  if (view) return setView(view.dataset.view);
+  const tt = e.target.closest('[data-team-toggle]');
+  if (tt) { const el = tt.parentElement; if (tt.dataset.teamToggle === state.team) el.classList.toggle('collapsed'); else { state.team = tt.dataset.teamToggle; state.mine = false; state.sel = 0; state.openId = null; render(); } return; }
+  const ti = e.target.closest('[data-team-issues]');
+  if (ti) { state.team = ti.dataset.teamIssues; state.view = 'list'; state.mine = false; state.sel = 0; state.openId = null; $('#app').classList.remove('mobile-nav'); return render(); }
+  const tb = e.target.closest('[data-team-board]');
+  if (tb) { state.team = tb.dataset.teamBoard; state.view = 'board'; state.mine = false; state.sel = 0; state.openId = null; $('#app').classList.remove('mobile-nav'); return render(); }
+  const nav = e.target.closest('[data-nav]');
+  if (nav && nav.dataset.nav === 'mine') { state.mine = true; state.sel = 0; $('#app').classList.remove('mobile-nav'); return render(); }
+  if (nav) return toast(`${nav.textContent.trim().replace(/\d+$/, '').trim()} is not in this mockup yet`);
+  if (e.target.closest('#mine-chip')) { state.mine = false; return render(); }
+  if (e.target.closest('#filter-chip')) return toast('Filters: status, priority, assignee, label, project');
+});
+
+$('#p-input').addEventListener('input', () => { pSel = 0; renderPalette(); });
+document.addEventListener('keydown', (e) => {
+  const typing = e.target.matches('input, textarea, select');
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); return openPalette(); }
+  if ($('#palette-ov').classList.contains('open')) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); pSel = Math.min(pItems.length - 1, pSel + 1); renderPalette(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); pSel = Math.max(0, pSel - 1); renderPalette(); }
+    if (e.key === 'Enter') { e.preventDefault(); runPalette(pSel); }
+    if (e.key === 'Escape') $('#palette-ov').classList.remove('open');
+    return;
+  }
+  if ($('#create-ov').classList.contains('open')) {
+    if (e.key === 'Escape') $('#create-ov').classList.remove('open');
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) $('#create-form').requestSubmit();
+    return;
+  }
+  if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 'j' || e.key === 'ArrowDown') { e.preventDefault(); select(1); }
+  else if (k === 'k' || e.key === 'ArrowUp') { e.preventDefault(); select(-1); }
+  else if (e.key === 'Enter') { const i = ordered()[state.sel]; if (i) openIssue(i.id); }
+  else if (e.key === 'Escape') { if (state.openId) { state.openId = null; render(); } $('#knobs').classList.remove('open'); }
+  else if (k === 'c') { e.preventDefault(); openCreate(); }
+  else if (k === 'b') setView(state.view === 'list' ? 'board' : 'list');
+});
+
+$('#knobs-form').addEventListener('change', () => {
+  const f = new FormData($('#knobs-form'));
+  document.documentElement.style.setProperty('--accent', f.get('accent'));
+  document.documentElement.dataset.density = f.get('density');
+  document.documentElement.dataset.theme = f.get('theme');
+  $('#app').classList.toggle('no-sidebar', f.get('sidebar') === 'hidden');
+});
+$('#knobs-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = Object.fromEntries(new FormData(e.currentTarget));
+  const text = `Accent ${f.accent}, ${f.density} density, ${f.theme} theme, sidebar ${f.sidebar}`;
+  if (window.lavish?.queuePrompt) {
+    window.lavish.queuePrompt(`Make these the mockup defaults: ${text}.`, { tag: 'choice', text: 'Design knobs: ' + text, element: e.currentTarget, queueKey: 'design-knobs', data: { question: 'design-knobs', answer: f } });
+    toast('Queued. Press Send to Agent when ready.');
+  } else {
+    toast('Open this in Lavish to send choices back.');
+  }
+});
+
+render();
+</script>
+</body>
+</html>

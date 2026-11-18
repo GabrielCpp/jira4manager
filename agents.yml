@@ -57,3 +57,6 @@ packs:
 # install read their own keys out of it.
 # workflow:
 #   githubTokenSecret: github-token
+
+repo:
+  id_prefix: J4M

@@ -1,11 +1,3 @@
-.agents/runs/
-.agents/worktrees/
-.agents/workflows/
-.agents/operator/
-.agents/local.compose.yaml
-.agents/agents-context.json
-.agents/agents-context.*.json
-.agents/agents.mk
 
 # Cargo
 target/
@@ -22,3 +14,12 @@ target/
 *.local.json
 fixtures/raw/
 .lavish/
+
+.agents/runs/
+.agents/worktrees/
+.agents/workflows/
+.agents/operator/
+.agents/local.compose.yaml
+.agents/agents-context.json
+.agents/agents-context.*.json
+.agents/agents.mk
