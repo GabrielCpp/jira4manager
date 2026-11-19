@@ -53,7 +53,7 @@ View tests use `#[gpui::test]` with the `test-support` feature on `gpui`. They o
 
 GPUI offers no way to find an element in a window. The test module of `gpui-kit` adds one: `find(id)`, `find_by_label`, `find_all_by_role`, `within(scope)` and `click(id)`. Each returns a snapshot with the element's role, label, value, checked and focused state, disabled state, bounds and visibility. `app` takes `gpui-kit` as a dev-dependency with `test-support` for this.
 
-The query layer only finds what the code names. So every interactive element carries an `.id()`, a role and an accessible label. The same three make the app usable with a screen reader. In-process tests cannot read GPUI's own accessibility tree, because a test window never turns it on.
+The query layer only finds what the code names. So every interactive element carries a role, an accessible label, and an `.id()` with the same value as its `accessibility_id`. In-process tests cannot read GPUI's own accessibility tree, because a test window never turns it on. A screen reader, or an outside driver, reads that tree over AT-SPI and sees only the `accessibility_id`. [gpui-atspi-spike-2026-11-19.md](../milestones/0001-issues-epics-and-board/artifacts/gpui-atspi-spike-2026-11-19.md) shows such a driver working under Xvfb.
 
 A view test names its journey and state, as in `manage_issues__required_field_empty`. The milestone's required states are the list of view tests to write.
 
