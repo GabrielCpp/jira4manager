@@ -59,15 +59,17 @@ Mockup: [manage-issues-in-a-project.html](mockups/manage-issues-in-a-project.htm
 
 1. The sidebar lists every project the user can browse. Each project expands to Issues, Epics and Board.
 2. Issues shows the project's open issues at the standard level, Bug, Story, Task and any other standard type the project offers, grouped by status. Groups follow status category order: in progress, then to do, then done. Inside a group, issues sort by priority. Group headers collapse on click.
-3. Each row shows priority, key, status, type, summary, the epic as a chip, the assignee and the time since the last update. A click on the epic chip opens the epic.
-4. A filter bar narrows the list by type, epic or no epic, assignee or unassigned, priority and status, and by text in the key or summary. The `/` key focuses the text filter. Filters combine, and Clear filters resets them all. A toggle shows done issues. The count at the right shows the JQL the view runs as a tooltip. The same filter bar, with the same behaviour, sits above the board and the backlog.
-5. J and K, or the arrow keys, move the selection. Enter opens the issue in the detail pane. Esc closes it.
-6. C, or the New issue button, opens the create dialog for the current project. The user picks a type from the types the project offers, writes a summary, a Markdown description, a priority, an assignee and an epic, and presses Create or Ctrl+Enter. The new issue appears in the list, and a toast names its key with an Open action. When the list is filtered to one epic, the dialog starts with that epic chosen.
-7. In the detail pane, a click on the title edits it in place. Enter saves and Esc cancels.
-8. The description's Edit button opens a Markdown editor with Write and Preview tabs. Save, or Ctrl+Enter, sends the description to Jira as ADF.
-9. Status, assignee, priority and epic each open a picker, from the properties column or with the S, A, P and E keys. The status picker lists only the statuses the workflow allows from the current one. The assignee picker lists the people who can be assigned in the project. The epic picker lists the project's open epics and None.
-10. Every change shows at once and is marked as saving until Jira confirms it.
-11. Open in browser opens `https://<site>/browse/<KEY>`.
+3. Each row shows priority, key, status, type, summary, up to two labels, the epic as a chip, the assignee and the time since the last update. A click on the epic chip opens the epic. A click on a label adds it to the label filter.
+4. A filter bar narrows the list by type, by text in the key or summary, and through one picker each for epic, label, assignee, priority and status. The `/` key focuses the text filter.
+5. Each picker opens from its pill. It has a search box that takes focus, a list of values with a checkbox each, and the number of issues in the current view that match each value. Epic values group open epics before done ones and include No epic. Label values are the labels used in the project and include No label. Typing narrows the list, the arrow keys move, Enter ticks a value, and Esc or a click outside closes the picker. The view updates as each value is ticked.
+6. Values ticked in one picker match any of them. Separate pickers combine, so an issue must match every active picker. The label picker also offers "has all of", which keeps only issues that carry every ticked label. An active pill shows its value, or a count when several are ticked, and has a button that removes that filter. Clear filters resets them all. A toggle shows done issues. The count at the right shows the JQL the view runs as a tooltip. The same filter bar, with the same behaviour, sits above the board and the backlog.
+7. J and K, or the arrow keys, move the selection. Enter opens the issue in the detail pane. Esc closes it.
+8. C, or the New issue button, opens the create dialog for the current project. The user picks a type from the types the project offers, writes a summary, a Markdown description, a priority, an assignee and an epic, and presses Create or Ctrl+Enter. The new issue appears in the list, and a toast names its key with an Open action. When the list is filtered to exactly one epic, the dialog starts with that epic chosen.
+9. In the detail pane, a click on the title edits it in place. Enter saves and Esc cancels.
+10. The description's Edit button opens a Markdown editor with Write and Preview tabs. Save, or Ctrl+Enter, sends the description to Jira as ADF.
+11. Status, assignee, priority and epic each open a picker, from the properties column or with the S, A, P and E keys. The status picker lists only the statuses the workflow allows from the current one. The assignee picker lists the people who can be assigned in the project. The epic picker has a search box and lists the project's open epics and No epic. The properties column also lists the issue's labels, read-only.
+12. Every change shows at once and is marked as saving until Jira confirms it.
+13. Open in browser opens `https://<site>/browse/<KEY>`.
 
 Required states:
 
@@ -90,7 +92,7 @@ Mockup: [manage-epics-in-a-project.html](mockups/manage-epics-in-a-project.html)
 1. Epics lists the project's open epics, grouped by status like Issues. A toggle shows done epics.
 2. Each row shows the epic's key, status, summary, a progress bar and "n of m" done, the assignee and the time since the last update. The bar splits the children into done and in progress by status category.
 3. Enter or a click opens the epic in the detail pane. The pane shows the summary, the description and a Child issues section with the progress bar and one row per child: type, key, status, summary and assignee.
-4. Add existing opens a picker of the project's open Bugs, Stories and Tasks that are not in this epic. A child of another epic shows which epic it leaves. Picking one sets its parent to this epic.
+4. Add existing opens a searchable picker of the project's open Bugs, Stories and Tasks that are not in this epic, grouped into issues with no epic and issues in another epic. A child of another epic shows which epic it leaves. Picking one sets its parent to this epic.
 5. Each child row has a remove action that clears the child's parent. A click on a child row opens that child.
 6. New child issue opens the create dialog with this epic chosen and the Epic type left out.
 7. New epic, or C in the Epics view, opens the create dialog with the Epic type chosen.
@@ -109,16 +111,17 @@ Required states:
 
 Mockup: [work-on-the-project-board.html](mockups/work-on-the-project-board.html)
 
-1. Board shows the project's Jira board with the board's own columns, in the board's order. Each column header shows its name and its card count.
-2. A scrum board shows the issues of the active sprint, with the sprint's name and end date above the columns. A kanban board shows the issues that are not in its backlog.
-3. Each card shows type, key, assignee, summary, priority and the epic as a chip. The filter bar from Issues applies here too. The filters stay set when the user switches between Board and Backlog, so a manager can narrow the work once and plan with it.
-4. Dragging a card to another column changes its status to the column's first status. Arrow keys or H, J, K and L move the card selection, and Shift with Left or Right moves the selected card one column. Enter opens the card in the detail pane.
-5. A move the workflow does not allow snaps back, and a toast says which move is missing.
-6. On a scrum board, the Backlog tab is the planning view. It stacks one collapsible section per sprint, the active sprint first and then each future sprint, with the Backlog section last. A sprint section's header shows its name, Active or Future, its dates, its goal, its counts by status category and its issue count. While filters are on, the count reads "n of m". Inside each section, issues keep Jira's rank order.
-7. The user selects issues with a checkbox, with Ctrl+click, with Shift+click for a range, or with X on the highlighted row. A bar shows how many are selected, with Move to and Clear. Esc clears the selection.
-8. Dragging an issue, or the whole selection, onto a sprint section or the Backlog section moves it there. Move to on a row, Move to on the selection bar, and the M key open a menu of the sprints and the Backlog. Done issues in the active sprint stay where they are.
-9. On a kanban board, the Backlog tab lists the issues in the backlog column's statuses, in rank order. Each row and the selection bar offer Move to board, which changes the status to the first board column's status.
-10. When the project has several boards, a picker above the columns switches between them. The app remembers the choice per project.
+1. The header reads "Case Platform CASE › Board": the project's name, its key and the view. Beside the Board and Backlog tabs, a muted line names the Jira board the view shows and its kind, and on a scrum board the active sprint and its end date.
+2. Board shows that Jira board's own columns, in the board's order. Each column header shows its name and its card count.
+3. A scrum board shows the issues of the active sprint, with the sprint's name and end date above the columns. A kanban board shows the issues that are not in its backlog.
+4. Each card shows type, key, assignee, summary, priority, the epic as a chip and its first label. The filter bar and pickers from Issues apply here too. The filters stay set when the user switches between Board and Backlog, so a manager can narrow the work once and plan with it.
+5. Dragging a card to another column changes its status to the column's first status. Arrow keys or H, J, K and L move the card selection, and Shift with Left or Right moves the selected card one column. Enter opens the card in the detail pane.
+6. A move the workflow does not allow snaps back, and a toast says which move is missing.
+7. On a scrum board, the Backlog tab is the planning view. It stacks one collapsible section per sprint, the active sprint first and then each future sprint, with the Backlog section last. A sprint section's header shows its name, Active or Future, its dates, its goal, its counts by status category and its issue count. While filters are on, the count reads "n of m". Inside each section, issues keep Jira's rank order.
+8. The user selects issues with a checkbox, with Ctrl+click, with Shift+click for a range, or with X on the highlighted row. A bar shows how many are selected, with Move to and Clear. Esc clears the selection.
+9. Dragging an issue, or the whole selection, onto a sprint section or the Backlog section moves it there. Move to on a row, Move to on the selection bar, and the M key open a menu of the sprints and the Backlog. Done issues in the active sprint stay where they are.
+10. On a kanban board, the Backlog tab lists the issues in the backlog column's statuses, in rank order. Each row and the selection bar offer Move to board, which changes the status to the first board column's status.
+11. When the project has several boards, the board line beside the tabs becomes a picker that switches between them. The app remembers the choice per project.
 
 Required states:
 
@@ -149,7 +152,9 @@ Required states:
 - **Search endpoint.** Issue lists and epic children use `POST /rest/api/3/search/jql` with `nextPageToken`. The removed `/rest/api/3/search` is never called. Counts come from the loaded issues.
 - **Pages and cap.** A view loads pages of 100 until the last page or until it holds 1,000 issues, and requests only the fields a row or card needs. Grouping needs the whole view in memory, and the cap keeps a large project from blocking the first paint.
 - **Async runtime.** `core` owns a multi-threaded tokio runtime on its own threads, with `reqwest` and rustls. The app sends commands to `core` and awaits the results on GPUI's foreground executor through runtime-agnostic channels. No Jira call runs on the UI thread.
-- **Filters are local.** The filter bar narrows the issues already loaded for the view. It sends no request, so typing in the text filter never waits on Jira. The JQL tooltip shows the equivalent query for the user's reference.
+- **Filters are local.** The filter bar narrows the issues already loaded for the view. It sends no request, so typing in the text filter or ticking a value never waits on Jira. Picker counts come from the same loaded issues, with every other active filter applied. The JQL tooltip shows the equivalent query for the user's reference.
+- **Labels are read, not written.** Search requests the `labels` field so rows, cards, the detail pane and the label picker can show it. No request in this release changes an issue's labels.
+- **One picker component.** Filter pickers, the epic property, Add existing and the assignee property share one searchable list component with single and multi-select modes, so they look and behave the same.
 - **Optimistic writes.** `core` applies an edit, a transition, a parent change or a sprint move to its cached state at once and marks the issue as saving. A move of several issues is one undoable unit: when any batch fails, every issue in the move returns to where it was. When Jira refuses it, `core` restores the previous value and reports the error. A create is not optimistic: the issue appears once Jira returns its key.
 - **Retries.** On 429 with `Retry-After`, `HttpJira` retries GET requests, the search POST and PUT edits, which set fields to values. It waits at least `Retry-After`, backs off exponentially with jitter, and gives up after 4 attempts. It never retries a create, a transition or a sprint move on its own, because a repeat could duplicate an issue or move it twice.
 - **Session cache.** `core` keeps the last result of each view in memory and renders it first on revisit, then refreshes. Nothing is persisted to disk except the config file.
@@ -194,6 +199,7 @@ Required states:
 - A board test against `FakeJira` shows a forbidden move snapping back with its reason.
 - A backlog test against `FakeJira` shows a multi-issue move into a sprint, the section counts updating, and a refused move returning every issue to its section.
 - An epic's progress bar matches its children's status categories, and adding or removing a child updates it.
+- A GPUI test against `FakeJira` shows the epic and label pickers: typing narrows the values, ticking two epics shows issues of either, "has all of" on two labels keeps only issues with both, each count matches the issues the view would show, and Esc closes the picker without losing the filters.
 - Golden tests in `fixtures/adf/` pin ADF to Markdown and Markdown to ADF for every node in the editable subset, and round-trip tests show ADF to Markdown to ADF is identical for that subset.
 - An issue whose description holds a panel, a table and an image renders a placeholder for each in document order, offers no Edit, and sends no description in any request.
 - The live check of the kanban backlog call is recorded in `docs/ARCHITECTURE.md` with the path the app takes.
@@ -203,12 +209,12 @@ Required states:
 ## Non-Goals
 
 - Comments, reading or writing.
-- Labels, components, fix versions, due dates, story points and custom fields beyond what create requires.
+- Editing labels. Components, fix versions, due dates, story points and custom fields beyond what create requires.
 - Sub-tasks, and changing an issue's type.
 - Cross-project views: My issues, saved views, free-form JQL and search across projects.
 - Creating, starting, completing or editing a sprint. The app moves issues between existing sprints only.
 - Ranking the backlog or the board by drag. A drop changes the sprint, not the rank.
-- Saved filters, filters by label or component, and filters shared between users.
+- Saved filters, filters by component or custom field, and filters shared between users.
 - Board swimlanes, WIP limits and quick filters.
 - Splicing unknown ADF nodes back into a saved description. Those descriptions stay read-only.
 - Moving an issue to another project, and epics whose children live in other projects being managed from here.

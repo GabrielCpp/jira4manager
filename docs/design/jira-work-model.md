@@ -29,6 +29,7 @@ The sidebar lists the site's projects. Under each project sit three views. Each 
 | Bug, Story, Task | Standard issue types, at hierarchy level 0 | Rows in Issues and cards on Board, each with its type icon. A type filter narrows both views. | Issue. Linear has no types, so the type icon is the one Jira concept the rows add. |
 | Epic | An issue type one level above Bug, Story and Task | A row in Epics with a progress bar, and an epic chip on each child row and card | Project, with its progress bar |
 | `parent` field | The link from a child issue to its epic | The Epic property of an issue, and Add existing and remove on an epic | An issue's project |
+| Label | Free-text tags on an issue, shared across the site | Chips on rows and cards, a read-only list in the detail pane, and a label filter with any-of and all-of matching | Labels |
 | Status and its category | The project's workflow steps, each in to do, in progress or done | Issues groups rows by status, in category order: in progress, then to do, then done. | Workflow states and their types |
 | Transition | A move the workflow allows between two statuses | Changing the status, from the picker, the S key, or a drag on the board. Only the moves the workflow allows are offered. | Changing the state |
 | Board and its columns | The board configuration, mapping each column to statuses | Board shows Jira's columns, in Jira's order. Dropping a card in a column runs a transition to that column's status. | Board view |

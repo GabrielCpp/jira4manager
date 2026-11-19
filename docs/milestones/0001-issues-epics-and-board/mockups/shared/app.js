@@ -13,6 +13,9 @@ const I = {
   person: '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5.5" r="2.6"/><path d="M3 13.5c.6-2.6 2.6-4 5-4s4.4 1.4 5 4"/></svg>',
   search: '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>',
   check: '<svg width="9" height="9" viewBox="0 0 10 10"><path d="M2 5.2l2 2 4-4.4" fill="none" stroke="#fff" stroke-width="1.6"/></svg>',
+  tag: '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 2.5h5.2l6 6-5.2 5.2-6-6z"/><circle cx="5.5" cy="5.5" r="1" fill="currentColor"/></svg>',
+  x: '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" stroke-width="1.5"/></svg>',
+  dot: '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5.2l2 2 4-4.4" fill="none" stroke="var(--accent)" stroke-width="1.8"/></svg>',
   caret: '<svg width="9" height="9" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
 };
 
@@ -84,6 +87,7 @@ const SHELL = `
 
 <div class="modal-back" id="modal"></div>
 <div class="menu" id="menu"></div>
+<div class="picker" id="picker" role="dialog"></div>
 <div class="toast" id="toast"></div>
 
 <div class="knobs" id="knobs">
@@ -224,6 +228,14 @@ let ISSUES = [
 ].map(([key, type, summary, status, priority, assignee, parent, updated, desc, sprint]) =>
   ({ key, proj: key.split('-')[0], type, summary, status, priority, assignee, parent, updated, desc, sprint: key.startsWith('CASE-') ? (sprint === true ? 14 : sprint || null) : null }));
 issueByKey('CASE-122').sprint = 15;
+const LABELS = {
+  'CASE-131': ['intake', 'regression'], 'CASE-139': ['intake', 'support'], 'CASE-128': ['intake', 'ux'], 'CASE-136': ['release'],
+  'CASE-135': ['reviewers', 'ux'], 'CASE-117': ['support'], 'CASE-122': ['audit', 'compliance'], 'CASE-123': ['audit', 'compliance', 'legal'],
+  'CASE-141': ['tech-debt'], 'CASE-96': ['migration'], 'CASE-97': ['migration', 'security'], 'CASE-143': ['audit'],
+  'CASE1-41': ['portal'], 'CASE1-44': ['portal', 'support'], 'CASE1-45': ['seo'], 'CASE1-38': ['a11y'], 'CASE1-47': ['a11y'],
+  'CASE1-49': ['a11y', 'design'], 'CASE1-36': ['notifications'], 'OPS-12': ['security'], 'OPS-14': ['backups'], 'OPS-9': ['support'],
+};
+ISSUES.forEach((i) => { i.labels = LABELS[i.key] || []; });
 function issueByKey(k) { return ISSUES.find((i) => i.key === k); }
 
 const M = window.MOCK || {};
@@ -237,10 +249,8 @@ const state = {
   view: M.view || 'issues',
   boardTab: M.boardTab || 'board',
   type: 'all',
-  epic: 'any',
-  assignee: 'any',
-  prio: 'any',
-  status: 'any',
+  f: { epic: new Set(), label: new Set(), assignee: new Set(), prio: new Set(), status: new Set() },
+  labelMode: 'any',
   q: '',
   picked: new Set(),
   lastPicked: null,
@@ -302,6 +312,11 @@ function projDot(key) {
   const p = project(key);
   return `<span class="proj-dot" style="background:${p.color}">${p.key[0]}</span>`;
 }
+function labelChips(ls) {
+  if (!ls || !ls.length) return '';
+  return ls.slice(0, 2).map((l) => `<span class="label" data-flabel="${esc(l)}" title="Filter by ${esc(l)}">${esc(l)}</span>`).join('') +
+    (ls.length > 2 ? `<span class="label more" title="${esc(ls.slice(2).join(', '))}">+${ls.length - 2}</span>` : '');
+}
 function epicChip(key) {
   if (!key) return '';
   const e = issue(key);
@@ -333,21 +348,78 @@ function progressBar(key) {
   return `<span class="bar" title="${g.done} done, ${g.doing} in progress, ${g.todo} to do"><i class="d" style="width:${w(g.done)}"></i><i class="p" style="width:${w(g.doing)}"></i></span><span class="pct">${g.done} of ${g.total}</span>`;
 }
 
-function filtered(list) {
+const MATCH = {
+  epic: (i, s) => s.has(i.parent || 'none'),
+  label: (i, s) => {
+    const has = (l) => l === 'none' ? !i.labels.length : i.labels.includes(l);
+    return state.labelMode === 'all' ? [...s].every(has) : [...s].some(has);
+  },
+  assignee: (i, s) => s.has(i.assignee || 'none'),
+  prio: (i, s) => s.has(i.priority),
+  status: (i, s) => s.has(i.status),
+};
+function filtered(list, except) {
   const q = state.q.trim().toLowerCase();
   return list
     .filter((i) => state.type === 'all' || i.type === state.type)
-    .filter((i) => state.epic === 'any' || (state.epic === 'none' ? !i.parent : i.parent === state.epic))
-    .filter((i) => state.assignee === 'any' || (state.assignee === 'none' ? !i.assignee : i.assignee === state.assignee))
-    .filter((i) => state.prio === 'any' || i.priority === state.prio)
-    .filter((i) => state.status === 'any' || i.status === state.status)
+    .filter((i) => Object.entries(MATCH).every(([d, m]) => d === except || !state.f[d].size || m(i, state.f[d])))
     .filter((i) => !q || i.key.toLowerCase().includes(q) || i.summary.toLowerCase().includes(q));
 }
-const filtersOn = () => state.type !== 'all' || state.epic !== 'any' || state.assignee !== 'any' || state.prio !== 'any' || state.status !== 'any' || !!state.q.trim();
+const filtersOn = () => state.type !== 'all' || Object.values(state.f).some((x) => x.size) || !!state.q.trim();
+function rawView() {
+  const p = project();
+  const all = ISSUES.filter((i) => i.proj === p.key && !isEpic(i));
+  if (state.view === 'board' && state.boardTab === 'board') return all.filter((i) => p.board.type === 'scrum' ? i.sprint === activeSprint(p)?.id : i.status !== p.board.backlogStatus);
+  if (inBacklog()) return all.filter((i) => p.board.type === 'scrum' ? i.sprint || pickable(i) : i.status === p.board.backlogStatus);
+  return all.filter((i) => state.showDone || cat(i.status) !== 'done');
+}
+function countFor(d, v) {
+  return filtered(rawView(), d).filter((i) => MATCH[d](i, new Set([v]))).length;
+}
+function projectLabels() {
+  const n = {};
+  ISSUES.filter((i) => i.proj === state.proj).forEach((i) => i.labels.forEach((l) => { n[l] = (n[l] || 0) + 1; }));
+  return Object.keys(n).sort((a, b) => n[b] - n[a] || a.localeCompare(b));
+}
+const DIM = {
+  epic: {
+    label: 'Epic', plural: 'epics', placeholder: 'Find an epic by key or name', icon: () => typeIcon('Epic', 12),
+    name: (v) => v === 'none' ? 'No epic' : issue(v).summary,
+    options: () => [{ v: 'none', html: '<span class="muted">No epic</span>', text: 'no epic' }]
+      .concat(epicsOf().sort((a, b) => (cat(a.status) === 'done') - (cat(b.status) === 'done')).map((e) => ({
+        v: e.key, text: `${e.key} ${e.summary}`, group: cat(e.status) === 'done' ? 'Done epics' : 'Open epics',
+        html: `${typeIcon('Epic')}<span class="id">${e.key}</span><span class="ell">${esc(e.summary)}</span>${statusIcon(e.status, 12)}`,
+      }))),
+  },
+  label: {
+    label: 'Label', plural: 'labels', placeholder: 'Find a label', icon: () => I.tag,
+    name: (v) => v === 'none' ? 'No label' : v,
+    options: () => [{ v: 'none', html: '<span class="muted">No label</span>', text: 'no label' }]
+      .concat(projectLabels().map((l) => ({ v: l, text: l, n: countFor('label', l), group: 'Labels in this project', html: `<span class="label">${esc(l)}</span>` }))
+        .sort((a, b) => state.f.label.has(b.v) - state.f.label.has(a.v) || (b.n > 0) - (a.n > 0))),
+  },
+  assignee: {
+    label: 'Assignee', plural: 'people', placeholder: 'Find a person', icon: (vals) => vals.length === 1 && vals[0] !== 'none' ? avatar(vals[0], 'xs') : I.person,
+    name: (v) => v === 'none' ? 'Unassigned' : PEOPLE[v].name,
+    options: () => [{ v: 'none', html: `${avatar(null)}<span class="muted">Unassigned</span>`, text: 'unassigned' }]
+      .concat(Object.entries(PEOPLE).map(([k, x]) => ({ v: k, text: x.name, html: `${avatar(k)}<span class="ell">${esc(x.name)}</span>` }))),
+  },
+  prio: {
+    label: 'Priority', plural: 'priorities', placeholder: 'Find a priority', icon: (vals) => priorityIcon(vals.length === 1 ? vals[0] : 2),
+    name: (v) => PRIORITIES[v],
+    options: () => PRIORITIES.map((x, n) => ({ v: n, text: x, html: `${priorityIcon(n)}<span>${x}</span>` })),
+  },
+  status: {
+    label: 'Status', plural: 'statuses', placeholder: 'Find a status', icon: (vals) => statusIcon(vals.length === 1 ? vals[0] : 'To Do', 12),
+    name: (v) => v,
+    options: () => project().statuses.map((x) => ({ v: x, text: x, html: `${statusIcon(x)}<span>${esc(x)}</span>` })),
+  },
+};
 const inBacklog = () => state.view === 'board' && state.boardTab === 'backlog' && hasBacklog();
 const pickable = (i) => cat(i.status) !== 'done';
 function clearFilters() {
-  Object.assign(state, { type: 'all', epic: 'any', assignee: 'any', prio: 'any', status: 'any', q: '', sel: 0 });
+  Object.assign(state, { type: 'all', q: '', sel: 0, labelMode: 'any' });
+  Object.values(state.f).forEach((x) => x.clear());
 }
 function listIssues() {
   if (state.data === 'empty') return [];
@@ -407,11 +479,11 @@ function renderSidebar() {
 
 function renderTop() {
   const p = project();
-  const label = { issues: 'Issues', epics: 'Epics', board: p.board.name }[state.view];
-  $('#crumb').innerHTML = `${projDot(p.key)}<span>${esc(p.name)}</span><span class="sep">›</span><span>${esc(label)}</span>`;
-  $('#tabs').innerHTML = state.view === 'board' && hasBacklog(p)
-    ? ['board', 'backlog'].map((t) => `<div class="tab ${state.boardTab === t ? 'active' : ''}" data-btab="${t}">${t === 'board' ? 'Board' : `Backlog <span class="n">${backlogIssues().length}</span>`}</div>`).join('')
-    : '';
+  const label = { issues: 'Issues', epics: 'Epics', board: 'Board' }[state.view];
+  $('#crumb').innerHTML = `${projDot(p.key)}<span>${esc(p.name)}</span><span class="pkey-c" title="Jira project key">${p.key}</span><span class="sep">›</span><span>${label}</span>`;
+  const src = `<span class="board-src" title="This view shows the Jira board named ${esc(p.board.name)}. Its columns map to ${p.key} statuses.">Jira board <b>${esc(p.board.name)}</b> · ${p.board.type === 'scrum' ? `Scrum · ${p.board.sprint}, ${p.board.ends}` : 'Kanban'}</span>`;
+  $('#tabs').innerHTML = state.view !== 'board' ? ''
+    : (hasBacklog(p) ? ['board', 'backlog'].map((t) => `<div class="tab ${state.boardTab === t ? 'active' : ''}" data-btab="${t}">${t === 'board' ? 'Board' : `Backlog <span class="n">${backlogIssues().length}</span>`}</div>`).join('') : '') + src;
   const busy = state.refreshing || state.data === 'loading';
   $('#sync-text').textContent = busy ? 'Refreshing…' : state.data === 'error' ? 'Refresh failed' : 'Updated just now';
   $('#refresh').classList.toggle('spin', busy);
@@ -421,20 +493,17 @@ function renderTop() {
 function typeChips() {
   return `<div class="seg">${['all', ...STANDARD].map((t) => `<span class="seg-i ${state.type === t ? 'on' : ''}" data-type="${t}">${t === 'all' ? 'All types' : typeIcon(t, 12) + t}</span>`).join('')}</div>`;
 }
-function epicFilter() {
-  const label = state.epic === 'any' ? 'Any epic' : state.epic === 'none' ? 'No epic' : issue(state.epic).summary;
-  return `<span class="filter ${state.epic !== 'any' ? 'on' : ''}" data-pick="epic-filter">${typeIcon('Epic', 12)}<span class="t">${esc(label)}</span>${I.caret}</span>`;
+function dimPill(d) {
+  const D = DIM[d];
+  const vals = [...state.f[d]];
+  let text = !vals.length ? D.label : vals.length === 1 ? D.name(vals[0]) : `${vals.length} ${D.plural}`;
+  if (d === 'label' && vals.length > 1) text += state.labelMode === 'all' ? ', all' : ', any';
+  const head = vals.length ? `<span class="fk">${D.label}</span>` : '';
+  const tail = vals.length ? `<span class="x" data-act="clear-dim" data-dim="${d}" title="Remove the ${D.label.toLowerCase()} filter">${I.x}</span>` : I.caret;
+  return `<span class="filter ${vals.length ? 'on' : ''}" data-pick="f:${d}" title="Filter by ${D.label.toLowerCase()}">${D.icon(vals)}${head}<span class="t">${esc(text)}</span>${tail}</span>`;
 }
-function pillFilter(kind, icon, label, on) {
-  return `<span class="filter ${on ? 'on' : ''}" data-pick="${kind}">${icon}<span class="t">${esc(label)}</span>${I.caret}</span>`;
-}
-function moreFilters() {
-  const who = state.assignee === 'any' ? 'Any assignee' : state.assignee === 'none' ? 'Unassigned' : PEOPLE[state.assignee].name;
-  const pr = state.prio === 'any' ? 'Any priority' : PRIORITIES[state.prio];
-  const st = state.status === 'any' ? 'Any status' : state.status;
-  return pillFilter('assignee-filter', state.assignee === 'any' || state.assignee === 'none' ? I.person : avatar(state.assignee, 'xs'), who, state.assignee !== 'any') +
-    pillFilter('priority-filter', priorityIcon(state.prio === 'any' ? 2 : state.prio), pr, state.prio !== 'any') +
-    pillFilter('status-filter', statusIcon(state.status === 'any' ? 'To Do' : state.status, 12), st, state.status !== 'any');
+function filterPills() {
+  return ['epic', 'label', 'assignee', 'prio', 'status'].map(dimPill).join('');
 }
 function searchBox() {
   return `<label class="search">${I.search}<input id="q" value="${esc(state.q)}" placeholder="Key or text" autocomplete="off" spellcheck="false"><span class="kbd">/</span></label>`;
@@ -451,30 +520,35 @@ function jqlFor() {
   if (state.view === 'epics') return `project = ${p} AND issuetype = Epic${done} ORDER BY Rank`;
   if (state.view === 'board') return `Board "${project().board.name}" (${project().board.type})`;
   const type = state.type === 'all' ? ' AND issuetype in standardIssueTypes()' : ` AND issuetype = ${state.type}`;
-  const epic = state.epic === 'any' ? '' : state.epic === 'none' ? ' AND parent is EMPTY' : ` AND parent = ${state.epic}`;
-  const who = state.assignee === 'any' ? '' : state.assignee === 'none' ? ' AND assignee is EMPTY' : ` AND assignee = "${PEOPLE[state.assignee].name}"`;
-  const pr = state.prio === 'any' ? '' : ` AND priority = ${PRIORITIES[state.prio]}`;
-  const st = state.status === 'any' ? '' : ` AND status = "${state.status}"`;
+  const part = (field, vals, none, fmt) => {
+    if (!vals.length) return '';
+    const xs = vals.filter((v) => v !== 'none').map(fmt);
+    const ex = (xs.length ? [`${field} in (${xs.join(', ')})`] : []).concat(vals.includes('none') ? [none] : []);
+    return ` AND ${ex.length > 1 ? `(${ex.join(' OR ')})` : ex[0]}`;
+  };
+  const labels = [...state.f.label];
+  const lab = state.labelMode === 'all' && labels.length > 1 && !labels.includes('none')
+    ? labels.map((l) => ` AND labels = "${l}"`).join('')
+    : part('labels', labels, 'labels is EMPTY', (v) => `"${v}"`);
   const q = state.q.trim() ? ` AND text ~ "${state.q.trim()}"` : '';
-  return `project = ${p}${type}${epic}${who}${pr}${st}${q}${done} ORDER BY Rank`;
+  return `project = ${p}${type}` + part('parent', [...state.f.epic], 'parent is EMPTY', (v) => v) + lab +
+    part('assignee', [...state.f.assignee], 'assignee is EMPTY', (v) => `"${PEOPLE[v].name}"`) +
+    part('priority', [...state.f.prio], '', (v) => PRIORITIES[v]) + part('status', [...state.f.status], '', (v) => `"${v}"`) +
+    `${q}${done} ORDER BY Rank`;
 }
 function renderToolbar() {
   const p = project();
   let left = '', right = '';
   if (state.view === 'issues') {
     const n = listIssues().length;
-    left = typeChips() + epicFilter() + moreFilters() + searchBox() + doneToggle('issues') + clearLink();
+    left = typeChips() + filterPills() + searchBox() + doneToggle('issues') + clearLink();
     right = `<span class="total" title="${esc(jqlFor())}">${n} issue${n === 1 ? '' : 's'}</span>`;
   } else if (state.view === 'epics') {
     const n = listEpics().length;
     left = doneToggle('epics');
     right = `<span class="total" title="${esc(jqlFor())}">${n} epic${n === 1 ? '' : 's'}</span>`;
   } else {
-    left = typeChips() + epicFilter() + moreFilters() + searchBox() + clearLink();
-    right = inBacklog() ? ''
-      : p.board.type === 'scrum'
-        ? `<span class="pill" title="Scrum board">${statusIcon('In Progress', 12)}${p.board.sprint} · ${p.board.ends}</span>`
-        : '<span class="total">Kanban board</span>';
+    left = typeChips() + filterPills() + searchBox() + clearLink();
   }
   const had = document.activeElement?.id === 'q';
   const pos = had ? document.activeElement.selectionStart : 0;
@@ -504,7 +578,7 @@ function issueRow(i, flat, o = {}) {
     ${statusIcon(i.status)}
     ${typeIcon(i.type)}
     <span class="title">${esc(i.summary)}</span>
-    <span class="meta">${epicChip(i.parent)}</span>
+    <span class="meta">${labelChips(i.labels)}${epicChip(i.parent)}</span>
     ${avatar(i.assignee)}
     ${o.act || ''}
     <span class="date" title="Updated">${i.updated}</span>
@@ -534,7 +608,7 @@ function renderIssues() {
   const p = project();
   const items = listIssues();
   if (!items.length) {
-    const filteredOut = state.type !== 'all' || state.epic !== 'any';
+    const filteredOut = filtersOn();
     return filteredOut
       ? emptyBox('No issues match these filters', 'Clear the type or epic filter to see the rest of the project.', '<button class="btn" data-act="clear-filters">Clear filters</button>')
       : emptyBox(`No open issues in ${esc(p.name)}`, 'Create the first Bug, Story or Task for this project.', `<button class="btn" data-act="new">${I.plus}New issue</button>`);
@@ -553,7 +627,7 @@ function card(i) {
   return `<div class="card ${state.card === i.key ? 'sel' : ''} ${state.pending[i.key] ? 'pending' : ''}" draggable="true" data-card="${i.key}">
     <div class="c-top">${typeIcon(i.type)}<span class="id">${i.key}</span><span class="spacer"></span>${avatar(i.assignee)}</div>
     <div class="c-title">${esc(i.summary)}</div>
-    <div class="c-foot">${priorityIcon(i.priority)}${epicChip(i.parent)}</div>
+    <div class="c-foot">${priorityIcon(i.priority)}${epicChip(i.parent)}${labelChips(i.labels.slice(0, 1)).replace('class="label"', 'class="label sm"')}</div>
   </div>`;
 }
 function renderBoard() {
@@ -774,6 +848,7 @@ function renderDetail() {
     prop('Priority', `${priorityIcon(i.priority)}${PRIORITIES[i.priority]}`, 'priority') +
     (isEpic(i) ? '' : prop('Epic', i.parent ? `${typeIcon('Epic')}<span class="ell">${esc(issue(i.parent).summary)}</span>` : '<span class="muted">None</span>', 'epic')) +
     '<hr>' +
+    `<div class="prop"><span class="k">Labels</span><span class="v wrap" title="Labels are read-only in this release">${i.labels.length ? i.labels.map((l) => `<span class="label">${esc(l)}</span>`).join('') : '<span class="muted">None</span>'}</span></div>` +
     prop('Type', `${typeIcon(i.type)}${i.type}`) +
     prop('Reporter', name('ada')) +
     prop('Project', `${projDot(p.key)}<span class="ell">${esc(p.name)}</span>`) +
@@ -900,12 +975,79 @@ function closeMenu() {
   $('#menu').classList.remove('open');
   menuPick = null;
 }
+let PK = null;
+let pkJustClosed = null;
+function openPicker(anchor, cfg) {
+  closeMenu();
+  PK = { ...cfg, hl: 0, q: '' };
+  const el = $('#picker');
+  el.innerHTML = `<div class="pk-head">${esc(cfg.title)}</div>
+    <label class="pk-search">${I.search}<input id="pk-q" placeholder="${esc(cfg.placeholder)}" autocomplete="off" spellcheck="false" aria-label="${esc(cfg.placeholder)}"></label>
+    ${cfg.modes ? '<div class="pk-modes" id="pk-modes"></div>' : ''}
+    <div class="pk-list" id="pk-list" role="listbox" aria-multiselectable="${cfg.multi}"></div>
+    <div class="pk-foot" id="pk-foot"></div>`;
+  el.classList.add('open');
+  renderPicker();
+  const r = anchor.getBoundingClientRect();
+  el.style.left = `${Math.max(8, Math.min(r.left, innerWidth - el.offsetWidth - 8))}px`;
+  el.style.top = `${r.bottom + 4 + el.offsetHeight > innerHeight ? Math.max(8, r.top - el.offsetHeight - 4) : r.bottom + 4}px`;
+  $('#pk-q').focus();
+}
+function pkItems() {
+  const q = PK.q.trim().toLowerCase();
+  return PK.options().filter((o) => !q || o.text.toLowerCase().includes(q));
+}
+function renderPicker() {
+  const items = pkItems();
+  PK.hl = Math.max(0, Math.min(PK.hl, items.length - 1));
+  let last = null;
+  $('#pk-list').innerHTML = items.length ? items.map((o, n) => {
+    const g = o.group && o.group !== last ? `<div class="pk-group">${esc(o.group)}</div>` : '';
+    if (o.group) last = o.group;
+    const on = PK.isOn(o.v);
+    const lead = PK.multi ? `<span class="pk-box ${on ? 'on' : ''}">${on ? I.check : ''}</span>` : `<span class="pk-tick">${on ? I.dot : ''}</span>`;
+    const cnt = PK.count ? PK.count(o.v) : null;
+    const c = cnt === null ? '' : `<span class="pk-n">${cnt}</span>`;
+    return `${g}<div class="pk-i ${n === PK.hl ? 'hl' : ''} ${on ? 'on' : ''} ${cnt === 0 && !on ? 'zero' : ''}" data-pki="${n}" role="option" aria-selected="${on}">${lead}${o.html}${c}</div>`;
+  }).join('') : `<div class="pk-none">Nothing matches "${esc(PK.q)}"</div>`;
+  if (PK.modes) {
+    $('#pk-modes').innerHTML = ['any', 'all'].map((m) => `<span class="seg-i ${state.labelMode === m ? 'on' : ''}" data-pkmode="${m}">${m === 'any' ? 'Has any of' : 'Has all of'}</span>`).join('');
+  }
+  const n = PK.multi ? PK.selected() : 0;
+  $('#pk-foot').innerHTML = PK.multi
+    ? `<span>${n ? `${n} selected` : 'Pick one or more'}</span><span class="spacer"></span>${n ? '<span class="clear" data-pkclear>Clear</span>' : ''}<span class="hint"><span class="kbd">↑</span><span class="kbd">↓</span> <span class="kbd">Enter</span> toggles</span>`
+    : '<span class="spacer"></span><span class="hint"><span class="kbd">↑</span><span class="kbd">↓</span> <span class="kbd">Enter</span> chooses</span>';
+  $('#pk-list .hl')?.scrollIntoView({ block: 'nearest' });
+}
+function pkChoose(n) {
+  const o = pkItems()[n];
+  if (!o) return;
+  if (PK.multi) {
+    PK.toggle(o.v);
+    PK.hl = n;
+    renderPicker();
+    render();
+  } else {
+    const f = PK.onPick;
+    closePicker();
+    f(o.v);
+  }
+}
+function closePicker() {
+  $('#picker').classList.remove('open');
+  PK = null;
+}
 function pick(kind, anchor) {
   const i = issue(state.openId);
-  if (kind === 'epic-filter') {
-    const items = [{ value: 'any', html: 'Any epic', current: state.epic === 'any' }, { value: 'none', html: '<span class="muted">No epic</span>', current: state.epic === 'none' }]
-      .concat(epicsOf().map((e) => ({ value: e.key, html: `${typeIcon('Epic')}<span class="id">${e.key}</span><span class="ell">${esc(e.summary)}</span>`, current: state.epic === e.key })));
-    return openMenu(anchor, 'Filter by epic', items, (v) => { state.epic = v; state.sel = 0; render(); });
+  if (kind.startsWith('f:')) {
+    const d = kind.slice(2);
+    const D = DIM[d];
+    return openPicker(anchor, {
+      kind, title: `Filter by ${D.label.toLowerCase()}`, placeholder: D.placeholder, multi: true, modes: d === 'label',
+      options: D.options, isOn: (v) => state.f[d].has(v), count: (v) => countFor(d, v), selected: () => state.f[d].size,
+      toggle: (v) => { if (state.f[d].has(v)) state.f[d].delete(v); else state.f[d].add(v); state.sel = 0; },
+      clear: () => state.f[d].clear(),
+    });
   }
   if (kind === 'move-sprint') {
     const x = issue(anchor.dataset.key);
@@ -915,20 +1057,6 @@ function pick(kind, anchor) {
   }
   if (kind === 'move-picked') {
     return openMenu(anchor, `Move ${state.picked.size} issue${state.picked.size === 1 ? '' : 's'} to`, sprintMenuItems(null, true), (v) => moveMany([...state.picked], v));
-  }
-  const setF = (k) => (v) => { state[k] = v; state.sel = 0; render(); };
-  if (kind === 'assignee-filter') {
-    const items = [{ value: 'any', html: 'Any assignee', current: state.assignee === 'any' }, { value: 'none', html: `${avatar(null)}<span class="muted">Unassigned</span>`, current: state.assignee === 'none' }]
-      .concat(Object.entries(PEOPLE).map(([k, v]) => ({ value: k, html: `${avatar(k)}<span>${esc(v.name)}</span>`, current: state.assignee === k })));
-    return openMenu(anchor, 'Filter by assignee', items, setF('assignee'));
-  }
-  if (kind === 'priority-filter') {
-    return openMenu(anchor, 'Filter by priority', [{ value: 'any', html: 'Any priority', current: state.prio === 'any' }]
-      .concat(PRIORITIES.map((x, n) => ({ value: n, html: `${priorityIcon(n)}<span>${x}</span>`, current: state.prio === n }))), setF('prio'));
-  }
-  if (kind === 'status-filter') {
-    return openMenu(anchor, `Filter by ${state.proj} status`, [{ value: 'any', html: 'Any status', current: state.status === 'any' }]
-      .concat(project().statuses.map((x) => ({ value: x, html: `${statusIcon(x)}<span>${esc(x)}</span>`, current: state.status === x }))), setF('status'));
   }
   if (!i) return;
   if (kind === 'status') {
@@ -946,14 +1074,23 @@ function pick(kind, anchor) {
     return openMenu(anchor, 'Priority', PRIORITIES.map((x, n) => ({ value: n, html: `${priorityIcon(n)}<span>${x}</span>`, current: i.priority === n })), (v) => write(i, { priority: v }));
   }
   if (kind === 'epic' && !isEpic(i)) {
-    const items = [{ value: null, html: '<span class="muted">No epic</span>', current: !i.parent }]
-      .concat(epicsOf(i.proj).filter((e) => cat(e.status) !== 'done').map((e) => ({ value: e.key, html: `${typeIcon('Epic')}<span class="id">${e.key}</span><span class="ell">${esc(e.summary)}</span>`, current: i.parent === e.key })));
-    return openMenu(anchor, `Epics in ${i.proj}`, items, (v) => write(i, { parent: v }, { done: v ? `${i.key} is now in ${v}` : `${i.key} left its epic` }));
+    return openPicker(anchor, {
+      kind, title: `Epic for ${i.key}`, placeholder: 'Find an epic by key or name', multi: false,
+      options: () => [{ v: null, html: '<span class="muted">No epic</span>', text: 'no epic none' }]
+        .concat(epicsOf(i.proj).filter((e) => cat(e.status) !== 'done').map((e) => ({ v: e.key, text: `${e.key} ${e.summary}`, group: `Open epics in ${i.proj}`, html: `${typeIcon('Epic')}<span class="id">${e.key}</span><span class="ell">${esc(e.summary)}</span>${statusIcon(e.status, 12)}` }))),
+      isOn: (v) => (i.parent || null) === v,
+      onPick: (v) => write(i, { parent: v }, { done: v ? `${i.key} is now in ${v}` : `${i.key} left its epic` }),
+    });
   }
   if (kind === 'add-child' && isEpic(i)) {
-    const items = ISSUES.filter((x) => x.proj === i.proj && !isEpic(x) && x.parent !== i.key && cat(x.status) !== 'done')
-      .map((x) => ({ value: x.key, html: `${typeIcon(x.type)}<span class="id">${x.key}</span><span class="ell">${esc(x.summary)}</span>${x.parent ? `<span class="muted sm">from ${x.parent}</span>` : ''}` }));
-    return openMenu(anchor, `Add an open ${i.proj} issue to this epic`, items, (v) => write(issue(v), { parent: i.key }, { done: `${v} added to ${i.key}` }));
+    return openPicker(anchor, {
+      kind, title: `Add an open ${i.proj} issue to ${i.key}`, placeholder: 'Find an issue by key or text', multi: false,
+      options: () => ISSUES.filter((x) => x.proj === i.proj && !isEpic(x) && x.parent !== i.key && cat(x.status) !== 'done')
+        .sort((a, b) => !!a.parent - !!b.parent)
+        .map((x) => ({ v: x.key, text: `${x.key} ${x.summary} ${x.labels.join(' ')}`, group: x.parent ? 'In another epic' : 'In no epic', html: `${typeIcon(x.type)}<span class="id">${x.key}</span><span class="ell">${esc(x.summary)}</span>${x.parent ? `<span class="muted sm">from ${x.parent}</span>` : ''}` })),
+      isOn: () => false,
+      onPick: (v) => write(issue(v), { parent: i.key }, { done: `${v} added to ${i.key}` }),
+    });
   }
 }
 
@@ -1024,7 +1161,8 @@ function refresh() {
 }
 function newIssue(parent = null) {
   closeMenu();
-  const filterEpic = state.view !== 'epics' && !['any', 'none'].includes(state.epic) ? state.epic : null;
+  const eps = [...state.f.epic].filter((v) => v !== 'none');
+  const filterEpic = state.view !== 'epics' && eps.length === 1 ? eps[0] : null;
   state.modal = { type: state.view === 'epics' && !parent ? 'Epic' : 'Story', parent: parent || filterEpic, fromEpic: !!parent };
   $('#modal').innerHTML = '';
   render();
@@ -1062,7 +1200,7 @@ function submitCreate(e) {
     const created = {
       key: `${p.key}-${n}`, proj: p.key, type, summary, status: p.initial, priority: +f.get('priority'),
       assignee: f.get('assignee') || null, parent: type === 'Epic' ? null : f.get('parent') || null,
-      updated: 'now', desc: md ? fromMd(md) : null, sprint: null,
+      updated: 'now', desc: md ? fromMd(md) : null, sprint: null, labels: [],
     };
     ISSUES.push(created);
     state.modal = null;
@@ -1107,6 +1245,16 @@ function syncKnobs() {
 }
 
 document.addEventListener('click', (e) => {
+  pkJustClosed = null;
+  if (PK && !e.target.closest('#picker')) { pkJustClosed = PK.kind; closePicker(); }
+  if (PK) {
+    const it = e.target.closest('[data-pki]');
+    if (it) return pkChoose(+it.dataset.pki);
+    if (e.target.closest('[data-pkclear]')) { PK.clear(); renderPicker(); return render(); }
+    const md = e.target.closest('[data-pkmode]');
+    if (md) { state.labelMode = md.dataset.pkmode; renderPicker(); return render(); }
+    return;
+  }
   if (!e.target.closest('#menu')) closeMenu();
   const mi = e.target.closest('[data-mi]');
   if (mi && menuPick) { const f = menuPick; closeMenu(); f(+mi.dataset.mi); return; }
@@ -1129,6 +1277,7 @@ document.addEventListener('click', (e) => {
     if (a === 'close-modal') closeModal();
     if (a === 'toggle-done') { state.showDone = !state.showDone; state.sel = 0; render(); }
     if (a === 'clear-filters') { clearFilters(); render(); }
+    if (a === 'clear-dim') { state.f[act.dataset.dim].clear(); if (act.dataset.dim === 'label') state.labelMode = 'any'; state.sel = 0; render(); }
     if (a === 'clear-picked') { state.picked.clear(); render(); }
     if (a === 'picked-to-board') { const p = project(); [...state.picked].forEach((k) => setStatus(issue(k), p.board.columns[0][1][0])); state.picked.clear(); render(); }
     if (a === 'edit-summary') { state.editing = 'summary'; render(); }
@@ -1145,7 +1294,9 @@ document.addEventListener('click', (e) => {
     return;
   }
   const pk = e.target.closest('[data-pick]');
-  if (pk) return pick(pk.dataset.pick, pk);
+  if (pk) return pk.dataset.pick === pkJustClosed ? undefined : pick(pk.dataset.pick, pk);
+  const fl = e.target.closest('[data-flabel]');
+  if (fl) { state.f.label.add(fl.dataset.flabel); state.sel = 0; render(); return toast(`Filtering by the label <b>${esc(fl.dataset.flabel)}</b>`); }
   const dt = e.target.closest('[data-dtab]');
   if (dt) { state.descTab = dt.dataset.dtab; return render(); }
   const open = e.target.closest('[data-open]');
@@ -1170,6 +1321,7 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('input', (e) => {
+  if (e.target.id === 'pk-q' && PK) { PK.q = e.target.value; PK.hl = 0; return renderPicker(); }
   if (e.target.id !== 'q') return;
   state.q = e.target.value;
   state.sel = 0;
@@ -1231,6 +1383,13 @@ document.addEventListener('drop', (e) => {
 
 document.addEventListener('keydown', (e) => {
   if (state.screen !== 'app') return;
+  if (PK) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); PK.hl += 1; renderPicker(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); PK.hl = Math.max(0, PK.hl - 1); renderPicker(); }
+    else if (e.key === 'Enter') { e.preventDefault(); pkChoose(PK.hl); }
+    else if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); closePicker(); }
+    return;
+  }
   if (e.key === 'Escape') {
     if ($('#menu').classList.contains('open')) return closeMenu();
     if (e.target.id === 'q') { e.target.blur(); return; }
