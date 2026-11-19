@@ -2,14 +2,23 @@
 type: milestone
 id: J4M-01M7P8V07HWEFCWSJTH1C09D24
 title: Issues, epics and the project board
-status: approved
+status: authored
 dependsOn: []
 sourceItems: []
-epics: []
+epics:
+- J4M-01M7S7G2B1TEMQ8KFV0ZSZPYQJ
+- J4M-01M7S7G7RA7Q53B39FV9RWVCH5
+- J4M-01M7S7GBR4HF74ERP5FNMZH1SE
+- J4M-01M7S7GETK9N8CD9QA1678GJKX
 ---
 # Issues, epics and the project board
 
 ## Epics
+
+1. Connect to Jira and change a project issue (`J4M-01M7S7G2B1TEMQ8KFV0ZSZPYQJ`)
+2. Find, create and edit project issues (`J4M-01M7S7G7RA7Q53B39FV9RWVCH5`)
+3. Organize project issues in epics (`J4M-01M7S7GBR4HF74ERP5FNMZH1SE`)
+4. Work the project board and plan its backlog (`J4M-01M7S7GETK9N8CD9QA1678GJKX`)
 
 ## Outcome
 
