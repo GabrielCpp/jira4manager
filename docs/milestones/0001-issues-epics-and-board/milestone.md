@@ -31,7 +31,7 @@ After the skeleton, the issue list, issue editing, issue creation, epics and the
 
 ### Sign in to a Jira site
 
-- services: desktop-app, jira-cloud
+- services: jira-cloud
 
 Mockup: [sign-in-to-a-jira-site.html](mockups/sign-in-to-a-jira-site.html)
 
@@ -53,7 +53,7 @@ Required states:
 
 ### Manage issues in a project
 
-- services: desktop-app, jira-cloud
+- services: jira-cloud
 
 Mockup: [manage-issues-in-a-project.html](mockups/manage-issues-in-a-project.html)
 
@@ -88,7 +88,7 @@ Required states:
 
 ### Manage epics in a project
 
-- services: desktop-app, jira-cloud
+- services: jira-cloud
 
 Mockup: [manage-epics-in-a-project.html](mockups/manage-epics-in-a-project.html)
 
@@ -110,7 +110,7 @@ Required states:
 
 ### Work on the project board
 
-- services: desktop-app, jira-cloud
+- services: jira-cloud
 
 Mockup: [work-on-the-project-board.html](mockups/work-on-the-project-board.html)
 
@@ -143,6 +143,7 @@ Required states:
 
 - **Crate boundary.** The workspace holds `jira-api`, `adf`, `core` and `app`, with dependencies only in the direction `app → core → (jira-api, adf)`. `jira-api` and `adf` never depend on GPUI. `core` never depends on GPUI. This keeps the client, the converter and the state usable from tests and a CLI without a window.
 - **One API seam.** `jira-api` defines the `JiraApi` trait, with `HttpJira` for the network and `FakeJira` seeded from `fixtures/`. `core` and `app` take the trait, so every UI and core test runs against `FakeJira`. The trait grows only the methods these journeys call, and `FakeJira` implements each one with the same workflow rules as a real project, including forbidden transitions.
+- **One book, for Jira.** The journeys name one ostler book, `jira-cloud`, which models the part of Jira Cloud this release calls. ostler drives HTTP, web, mobile and command-line surfaces, and it cannot drive a native GPUI window, so no book models the desktop app. GPUI tests against `FakeJira` and a reviewer on a live site prove the screens instead. The `jira-cloud` book plays the same steps on the live sandbox and on the local fake Jira, so it keeps `FakeJira` true to Jira.
 - **Jira's model, not Linear's.** The app's domain types are Jira's: site, project, issue type with its hierarchy level, status with its category, transition, board with its columns, sprint and epic. The UI shows Jira's own names for each and never invents a status or a type. [jira-work-model.md](../../design/jira-work-model.md) holds the full mapping.
 - **One project at a time.** Every view is scoped to one project key. Nothing in this release merges data from two projects.
 - **Project configuration is read, never assumed.** The app reads a project's statuses from `/rest/api/3/project/{key}/statuses`, its creatable types from `/rest/api/3/issue/createmeta/{key}/issuetypes`, and each type's create fields from `/rest/api/3/issue/createmeta/{key}/issuetypes/{id}`, paging through both. The deprecated `GET /rest/api/3/issue/createmeta` with `expand` is never called. Standard types are those with hierarchy level 0, and epics are hierarchy level 1. Sub-tasks, at level -1, are left out.
@@ -156,7 +157,7 @@ Required states:
 - **Pages and cap.** A view loads pages of 100 until the last page or until it holds 1,000 issues, and requests only the fields a row or card needs. Grouping needs the whole view in memory, and the cap keeps a large project from blocking the first paint.
 - **Async runtime.** `core` owns a multi-threaded tokio runtime on its own threads, with `reqwest` and rustls. The app sends commands to `core` and awaits the results on GPUI's foreground executor through runtime-agnostic channels. No Jira call runs on the UI thread.
 - **Filters are local.** The filter bar narrows the issues already loaded for the view. It sends no request, so typing in the text filter or ticking a value never waits on Jira. Picker counts come from the same loaded issues, with every other active filter applied. The JQL tooltip shows the equivalent query for the user's reference.
-- **Fields come from Jira's screens.** The create dialog shows the fields that `createmeta/{key}/issuetypes/{id}` returns for the chosen type, in that order, with `required` from the same answer. The detail pane shows the fields that `/rest/api/3/issue/{key}/editmeta` returns, and fetches the issue with exactly those field ids. Field names, allowed values and defaults come from those answers. The app keeps no list of field names and never guesses a custom field from its name. It reads each field's kind from `schema.type`, `schema.items`, `schema.system` and `schema.custom`. Fields the user cannot set are absent from both answers, so the app never shows them as editable. The field APIs and their value shapes are in [jira-fields-research-2026-11-18.md](artifacts/jira-fields-research-2026-11-18.md).
+- **Fields come from Jira's screens.** The create dialog shows the fields that `createmeta/{key}/issuetypes/{id}` returns for the chosen type, in that order, with `required` from the same answer. The detail pane shows the edit screen's fields, which one `GET /rest/api/3/issue/{key}?fields=*all&expand=names,schema,editmeta` returns with their values, names and schemas. Field names, allowed values and defaults come from those answers. The app keeps no list of field names and never guesses a custom field from its name. It reads each field's kind from `schema.type`, `schema.items`, `schema.system` and `schema.custom`. Fields the user cannot set are absent from both answers, so the app never shows them as editable. The field APIs and their value shapes are in [jira-fields-research-2026-11-18.md](artifacts/jira-fields-research-2026-11-18.md).
 - **Supported field kinds.** The app edits these kinds:
   - assignee, reporter, and single and multi user pickers;
   - priority, select lists, radio buttons, multi-selects and checkboxes;
@@ -176,25 +177,38 @@ Required states:
 - **Identity.** Users are identified by `accountId` everywhere, including assignees and mentions. Assignee pickers use `/rest/api/3/user/assignable/search` with the project or the issue key. Other user fields search `/rest/api/3/user/search`. A user field limited to some groups can still refuse a person the picker offered, and the app shows Jira's message under the field.
 - **UI toolkit pins.** The app depends on gpui-component and its GPUI from crates.io with exact `=` versions. The chosen versions and the reason live in `docs/DEPENDENCIES.md`. An upgrade is its own commit.
 - **Design tokens.** The theme takes its colours, spacing and density from the mockups' CSS variables. It has dark and light themes, one accent colour, subtle borders and 36 px compact rows. The fonts are the platform's UI font and a monospace font.
+- **Test environment.** Seven layers prove the app, fastest first: the converter, the client over wiremock, `core` over `FakeJira`, views over `FakeJira` with `#[gpui::test]`, screens drawn to PNG with no display, the running app against a local fake Jira, and opt-in live tests on a sandbox site. [agent-test-environment.md](../../design/agent-test-environment.md) gives each layer's command and what it proves. Every layer up to the running app needs no Jira site and no person, so a coding agent proves each story alone.
+- **The local fake Jira.** `cargo xtask fake-jira` serves `FakeJira` over HTTP on loopback with the world the mockups show: `CASE` on a scrum board, `CASE1` team-managed on a kanban board, and `OPS` with a required field the app cannot edit. It answers only the requests in [jira-api-per-view.md](../../design/jira-api-per-view.md) and refuses any other, so a request the note does not list fails at once. Debug builds of the app take the site, email and token from `JIRA4MANAGER_*` variables so they can reach it.
+- **Elements tests can find.** Every interactive element carries an id, a role and an accessible label. GPUI has no element query, and its accessibility tree is off in test windows, so view tests find elements through `gpui-kit`'s test module, which reads exactly these three. `app` takes `gpui-kit` as a dev-dependency for it.
+- **The sandbox site.** Live tests run on a Jira Cloud Free site, where every user is an admin. `cargo xtask seed-sandbox` builds the mockup world on it and never deletes. Its token lives in saddlebag, and `saddlebag exec` puts it in the test's environment, so no file and no transcript holds it.
 - **App name.** The name `jira4manager` lives in the workspace metadata and one `APP_NAME` constant.
 
 ## Compatibility Sources
 
-- Behavioural oracle: Jira Cloud as documented on developer.atlassian.com, and a free Jira Cloud site for live tests. The API facts behind this milestone, with sources and read dates, are in [platform-research-2026-11-17.md](artifacts/platform-research-2026-11-17.md) and [jira-work-model-research-2026-11-18.md](artifacts/jira-work-model-research-2026-11-18.md) and [jira-fields-research-2026-11-18.md](artifacts/jira-fields-research-2026-11-18.md). Facts marked UNCONFIRMED there are checked on the live site by the story that first depends on them.
+- Behavioural oracle: Jira Cloud as documented on developer.atlassian.com, and a free Jira Cloud site for live tests. The API facts behind this milestone, with sources and read dates, are in [platform-research-2026-11-17.md](artifacts/platform-research-2026-11-17.md) and [jira-work-model-research-2026-11-18.md](artifacts/jira-work-model-research-2026-11-18.md), [jira-fields-research-2026-11-18.md](artifacts/jira-fields-research-2026-11-18.md). The test tooling facts are in [test-environment-research-2026-11-19.md](artifacts/test-environment-research-2026-11-19.md). Facts marked UNCONFIRMED there are checked on the live site by the story that first depends on them.
 - Domain mapping: [jira-work-model.md](../../design/jira-work-model.md) defines how each Jira concept appears in the app.
-- Product brief: [kickoff-brief.md](../../kickoff-brief.md). Where it and the research disagree, the research wins. Known differences: `InputState::multi_line()` no longer exists in gpui-component, gpui-component pins `gpui-pre` from crates.io, and the agile board issue lists the brief implies are deprecated.
+- Requests: [jira-api-per-view.md](../../design/jira-api-per-view.md) lists every Jira request the app makes, view by view and action by action, with its parameters, paging and batches. A request missing from that note is one the app must not make.
+- Test environment: [agent-test-environment.md](../../design/agent-test-environment.md) says how a coding agent runs each layer of tests, the local fake Jira and the sandbox site.
+- Product brief: [kickoff-brief.md](../../kickoff-brief.md). Where it and the research disagree, the research wins. Known differences:
+  - `InputState::multi_line()` no longer exists in gpui-component.
+  - gpui-component pins `gpui-pre` from crates.io. The gpui-component author publishes `gpui-pre`, as a snapshot of Zed, and Zed does not.
+  - The gpui-component repository is now `longbridge/gpui-kit`.
+  - The agile board issue lists the brief implies are deprecated.
+  - The brief pairs the project templates with the wrong project styles.
 - Look and interaction: this milestone's mockups, and the earlier exploration [tracker-mockup.html](../../mockups/tracker-mockup.html) for visual tone only. The exploration's cycles, command palette and cross-project views are not part of this release.
 
 ## Constraints
 
 - Native only. GPUI and gpui-component draw every pixel. No webview, Tauri, Electron or embedded browser, including for Markdown.
-- Writes to Jira are limited to: create issue, edit the summary, the description and the fields of a supported kind, run a transition, move issues into a sprint, and move issues back to the backlog. No other request changes data on the site.
+- The app's writes to Jira are limited to: create issue, edit the summary, the description and the fields of a supported kind, run a transition, move issues into a sprint, and move issues back to the backlog. No other request the app sends changes data on the site. The sandbox seed in `xtask` is the only other code that writes to Jira.
 - No save may erase content. A description that holds a node outside the editable subset is never sent back to Jira.
 - Every view and every write is scoped to one project. The app never moves an issue between projects.
 - The API token never appears in the config file, logs, `Debug` output, panic messages, fixtures or test snapshots. The `Authorization` header is redacted wherever requests are logged, and a test proves it.
 - No network call runs on the UI thread, and the window keeps handling input while any request is in flight.
 - Fixtures under `fixtures/` contain no real email, display name, accountId or site URL.
 - Live tests run only with `cargo test --features live -- --ignored` and the `JIRA_SITE`, `JIRA_EMAIL` and `JIRA_TOKEN` variables. CI never runs them. Live tests that write create their issues in a sandbox project and leave every other project untouched.
+- Release builds ignore the `JIRA4MANAGER_*` variables and refuse a site that is not `https`. Only debug builds reach the local fake Jira.
+- Every interactive element carries an id, a role and an accessible label.
 - Every dependency carries a licence compatible with GPL-3.0-or-later.
 - `cargo fmt --check`, `cargo clippy -- -D warnings` and `cargo test` pass on Linux, macOS and Windows in CI.
 - No Atlassian or Linear logo, icon or font appears in the app. "Jira" appears only in referential text, such as "Connect your Jira site".
@@ -220,6 +234,9 @@ Required states:
 - The live check of the kanban backlog call is recorded in `docs/ARCHITECTURE.md` with the path the app takes.
 - With `FakeJira` delaying every response, a GPUI test shows the skeleton state and shows the window still handles input during the delay.
 - Dark and light themes both render every screen above.
+- `cargo test -p app --test screens` writes a PNG of every required state of every journey, in both themes, on Linux with lavapipe and on macOS, and CI uploads them.
+- `scripts/headless-app.sh` starts the debug build against `cargo xtask fake-jira` under Xvfb on Linux and saves a PNG after each key step. A request the fake does not serve fails the run with its method and path.
+- `cargo xtask seed-sandbox` builds the mockup world on an empty Free site, apart from the steps the test-environment note lists as manual, and a second run changes nothing.
 
 ## Non-Goals
 
