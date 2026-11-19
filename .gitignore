@@ -15,6 +15,10 @@ target/
 fixtures/raw/
 .lavish/
 
+
+# Python
+__pycache__/
+
 .agents/runs/
 .agents/worktrees/
 .agents/workflows/

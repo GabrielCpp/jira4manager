@@ -1,0 +1,21 @@
+- GetMyself: which email and API token does `cargo xtask fake-jira` accept? Nothing written names the fake's credential, so the backstage sends `ana.ruiz@acme-labs.test` with `fake-jira-token` when `JIRA_EMAIL` and `JIRA_TOKEN` are unset.
+- GetMyself: what body does Jira Cloud give a 401 for a refused or missing Basic credential? The book expects the text `Client must be authenticated to access this resource.` with no error collection.
+- ScreenGoesOnDone: can the fake Jira put a screen on a transition while it runs? The test-environment note gives it only `--transition-screen` at start, and the sandbox needs an admin in the browser, so the book cannot arrange a transition that needs a screen.
+- RunTransition: what does Jira answer when a transition's screen requires a field the call leaves out? The research leaves it UNCONFIRMED, and the book expects 400 with `errors.resolution` set to `Resolution is required.`.
+- RunTransition: does Jira refuse a global transition into the status the issue already holds with `Transition id '<id>' is not valid for this issue.`?
+- MoveToSprint: what message does Jira give a move of more than 50 issues, and does it count the issues before it looks any up? The book names one issue 51 times and expects `Cannot move more than 50 issues at once.`.
+- MoveToSprint: what does Jira answer a sprint id that is not a number? The book expects 404 `Sprint does not exist or you do not have permission to see it.`.
+- SearchIssues: how does Jira order `ORDER BY status`? The book orders by the status's place in the project's workflow, then by rank.
+- SearchIssues: what does Jira answer a search with no JQL or a blank one? The book expects 400 `Unbounded JQL queries are not allowed here. Please add a search restriction to your query.`.
+- SearchIssues: what does Jira answer a page token no page gave? The book expects 400 `The provided next page token is invalid or expired.`.
+- CreateIssue: what does Jira answer a body whose field has the wrong JSON type, or a create with no fields? The book expects 400 `Invalid request payload. Refer to the REST API documentation and try again.` for every malformed body.
+- FindUsers: what does Jira answer a user search with no query? The book expects 400 `One of the following query parameters must be provided: query, accountId, property.`.
+- ListBoardSprints: what does Jira answer a sprint list on a kanban board? The book expects 400 `The board does not support sprints`.
+- ReadFilter: does Jira answer a filter that does not exist with 400 and `The selected filter is not available to you, perhaps it has been deleted or had its permissions changed.`?
+- ListSprintIssues: what does the software sprint list answer for a sprint that does not exist? The book expects 404 `Sprint with id <id> does not exist.`.
+- ListBoardBacklog: does `/rest/software/1.0/board/{id}/backlog` answer for the CASE1 kanban board? A community report says the agile backlog list answers 400 on kanban.
+- EditIssue: does `update.parent` with `[{"set": {"none": true}}]` clear a parent in both project styles? The research leaves the exact shape UNCONFIRMED.
+- ListCreatableTypes: does each item of the creatable types carry `hierarchyLevel`? The research leaves it UNCONFIRMED.
+- IssueTypeRecord: does the sandbox's scrum template add a Subtask type to CASE that the mockup world lacks? The seed creates CASE from a template, and the book leaves a sub-task type out.
+- StatusRecord: does the sandbox's CASE workflow hold In Review and lack a transition from In Review back to To Do, as the mockup world does? The seed lists no step that edits a workflow.
+- LabelRecord: does Jira create a label from the first issue that carries it, and does the API refuse a label with a space? The research leaves both UNCONFIRMED.
