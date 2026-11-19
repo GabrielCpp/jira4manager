@@ -11,6 +11,7 @@
 # below so a git worktree, whose folder has another name, installs the same skills.
 repo:
   name: jira4manager
+  id_prefix: J4M
 
 # Which assistant adapters to generate. At least one must be truthy.
 #   claude  -> .claude/skills/<name>/SKILL.md, .claude/commands/<name>.md
@@ -60,5 +61,3 @@ packs:
 # workflow:
 #   githubTokenSecret: github-token
 
-repo:
-  id_prefix: J4M
