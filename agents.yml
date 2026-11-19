@@ -6,9 +6,11 @@
 # Only `agents` is required. Every key, with its accepted spellings and defaults, is
 # documented inline in farrier's agents.example.yml.
 #
-# The repo's name is this directory's name, kebab-cased. It is not configurable: it is
-# also the prefix on every skill installed here (library skill `db.md` -> `jira4manager-db`)
-# and the name the workflow tooling reads off the checkout, and those must agree.
+# The repo's name is the prefix on every skill installed here (library skill `db.md` ->
+# `jira4manager-db`) and the name the workflow tooling reads off the checkout. It is set
+# below so a git worktree, whose folder has another name, installs the same skills.
+repo:
+  name: jira4manager
 
 # Which assistant adapters to generate. At least one must be truthy.
 #   claude  -> .claude/skills/<name>/SKILL.md, .claude/commands/<name>.md
