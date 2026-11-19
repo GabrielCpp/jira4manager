@@ -2,7 +2,7 @@
 type: milestone
 id: J4M-01M7P8V07HWEFCWSJTH1C09D24
 title: Issues, epics and the project board
-status: proposed
+status: approved
 dependsOn: []
 sourceItems: []
 epics: []
