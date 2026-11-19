@@ -13,7 +13,7 @@ epics: []
 
 ## Outcome
 
-A person who runs work in Jira Cloud opens a native desktop app, connects it to their site with an email and an API token, and manages one team's project at a time without a browser. They create and edit Bugs, Stories and Tasks, move them through the project's workflow, group them under epics, and work the project's board and backlog. The app is fast and keyboard-first, and it never freezes while Jira answers.
+A person who runs work in Jira Cloud opens a native desktop app, connects it to their site with an email and an API token, and manages one team's project at a time without a browser. They create and edit Bugs, Stories and Tasks, move them through the project's workflow, group them under epics, and work the project's board. They plan sprints from the backlog by filtering it down and dragging many issues into a sprint at once. The app is fast and keyboard-first, and it never freezes while Jira answers.
 
 The app borrows Linear's look and keeps Jira's model. Each project keeps its own key, issue types, workflow, board, backlog and epics, and the app reads all of them from Jira. The mapping between the two is in [jira-work-model.md](../../design/jira-work-model.md). Anything the app cannot do yet stays one click away through Open in browser.
 
@@ -60,7 +60,7 @@ Mockup: [manage-issues-in-a-project.html](mockups/manage-issues-in-a-project.htm
 1. The sidebar lists every project the user can browse. Each project expands to Issues, Epics and Board.
 2. Issues shows the project's open issues at the standard level, Bug, Story, Task and any other standard type the project offers, grouped by status. Groups follow status category order: in progress, then to do, then done. Inside a group, issues sort by priority. Group headers collapse on click.
 3. Each row shows priority, key, status, type, summary, the epic as a chip, the assignee and the time since the last update. A click on the epic chip opens the epic.
-4. A type filter narrows the list to one type. An epic filter narrows it to one epic or to issues with no epic. A toggle shows done issues. The count at the right shows the JQL the view runs as a tooltip.
+4. A filter bar narrows the list by type, epic or no epic, assignee or unassigned, priority and status, and by text in the key or summary. The `/` key focuses the text filter. Filters combine, and Clear filters resets them all. A toggle shows done issues. The count at the right shows the JQL the view runs as a tooltip. The same filter bar, with the same behaviour, sits above the board and the backlog.
 5. J and K, or the arrow keys, move the selection. Enter opens the issue in the detail pane. Esc closes it.
 6. C, or the New issue button, opens the create dialog for the current project. The user picks a type from the types the project offers, writes a summary, a Markdown description, a priority, an assignee and an epic, and presses Create or Ctrl+Enter. The new issue appears in the list, and a toast names its key with an Open action. When the list is filtered to one epic, the dialog starts with that epic chosen.
 7. In the detail pane, a click on the title edits it in place. Enter saves and Esc cancels.
@@ -111,18 +111,24 @@ Mockup: [work-on-the-project-board.html](mockups/work-on-the-project-board.html)
 
 1. Board shows the project's Jira board with the board's own columns, in the board's order. Each column header shows its name and its card count.
 2. A scrum board shows the issues of the active sprint, with the sprint's name and end date above the columns. A kanban board shows the issues that are not in its backlog.
-3. Each card shows type, key, assignee, summary, priority and the epic as a chip. The type and epic filters from Issues apply here too.
+3. Each card shows type, key, assignee, summary, priority and the epic as a chip. The filter bar from Issues applies here too. The filters stay set when the user switches between Board and Backlog, so a manager can narrow the work once and plan with it.
 4. Dragging a card to another column changes its status to the column's first status. Arrow keys or H, J, K and L move the card selection, and Shift with Left or Right moves the selected card one column. Enter opens the card in the detail pane.
 5. A move the workflow does not allow snaps back, and a toast says which move is missing.
-6. The Backlog tab lists the backlog in Jira's rank order. On a scrum board, each row offers Move to the active sprint. On a kanban board, it offers Move to board, which changes the status to the first board column's status.
-7. When the project has several boards, a picker above the columns switches between them. The app remembers the choice per project.
+6. On a scrum board, the Backlog tab is the planning view. It stacks one collapsible section per sprint, the active sprint first and then each future sprint, with the Backlog section last. A sprint section's header shows its name, Active or Future, its dates, its goal, its counts by status category and its issue count. While filters are on, the count reads "n of m". Inside each section, issues keep Jira's rank order.
+7. The user selects issues with a checkbox, with Ctrl+click, with Shift+click for a range, or with X on the highlighted row. A bar shows how many are selected, with Move to and Clear. Esc clears the selection.
+8. Dragging an issue, or the whole selection, onto a sprint section or the Backlog section moves it there. Move to on a row, Move to on the selection bar, and the M key open a menu of the sprints and the Backlog. Done issues in the active sprint stay where they are.
+9. On a kanban board, the Backlog tab lists the issues in the backlog column's statuses, in rank order. Each row and the selection bar offer Move to board, which changes the status to the first board column's status.
+10. When the project has several boards, a picker above the columns switches between them. The app remembers the choice per project.
 
 Required states:
 
 - First load: skeleton rows while the board arrives.
 - Scrum board with no active sprint: the board says no sprint is active and points to the browser to start one. The Backlog tab still works.
 - Board without a backlog: a kanban board with its backlog turned off shows no Backlog tab.
-- Empty backlog: the tab says every open issue is on the board or in the sprint.
+- Empty backlog: the Backlog section says every open issue is in a sprint.
+- Empty sprint: a sprint section with no issues invites the user to drag issues into it.
+- Filtered to nothing: a section whose issues all fail the filters says so and keeps its header and counts.
+- Move rejected: when Jira refuses a move, every issue in it returns to its section, and one toast names how many issues did not move.
 - Project with no board: Board says the project has no board and points to the browser.
 - Transition needs a screen: the card returns to its column, and the toast offers to finish in the browser.
 - Fetch error: the board says it could not be loaded and offers Try again.
@@ -139,11 +145,12 @@ Required states:
 - **Epic Name.** On create, the app sends Epic Name only when the project's create metadata marks it required, and fills it with the summary. The field became optional in 2023, but some sites may still require it.
 - **Status categories.** Grouping follows the status category key: in progress, then to do, then done. A status with an unknown or missing category sorts after to do and before done. The keys are observed behaviour and no official page lists them.
 - **Transitions.** A status change reads `/rest/api/3/issue/{key}/transitions?expand=transitions.fields` and runs the transition whose target is the chosen status. When that transition has a required field without a default, the app does not run it and sends the user to the browser instead. A board drop picks the first status of the target column that has an available transition.
-- **Board data.** Boards come from `/rest/agile/1.0/board?projectKeyOrId=KEY` and their columns from `/rest/agile/1.0/board/{id}/configuration`. The active sprint comes from `/rest/agile/1.0/board/{id}/sprint?state=active`. Board, sprint and backlog issues come from the token-paged `/rest/software/1.0/board/{id}/issue`, `/rest/software/1.0/sprint/{id}/issue` and `/rest/software/1.0/board/{id}/backlog`. Atlassian deprecated the `/rest/agile/1.0/` issue lists in 2026. Moving into a sprint uses `POST /rest/agile/1.0/sprint/{id}/issue`. Whether the backlog call works on a kanban board is unconfirmed, so the first board story checks it on the live site and records the result in `docs/ARCHITECTURE.md`. If it fails, the app reads the kanban backlog through the board's filter and the statuses of its backlog column.
+- **Board data.** Boards come from `/rest/agile/1.0/board?projectKeyOrId=KEY` and their columns from `/rest/agile/1.0/board/{id}/configuration`. The active and future sprints, with their dates and goals, come from `/rest/agile/1.0/board/{id}/sprint?state=active,future`. Board, sprint and backlog issues come from the token-paged `/rest/software/1.0/board/{id}/issue`, `/rest/software/1.0/sprint/{id}/issue` and `/rest/software/1.0/board/{id}/backlog`. Atlassian deprecated the `/rest/agile/1.0/` issue lists in 2026. Moving into a sprint uses `POST /rest/agile/1.0/sprint/{id}/issue`, and moving back to the backlog uses `POST /rest/agile/1.0/backlog/issue`. Both take at most 50 issues per call, so a larger selection is sent in batches of 50. Moved issues keep their rank. Whether the backlog call works on a kanban board is unconfirmed, so the first board story checks it on the live site and records the result in `docs/ARCHITECTURE.md`. If it fails, the app reads the kanban backlog through the board's filter and the statuses of its backlog column.
 - **Search endpoint.** Issue lists and epic children use `POST /rest/api/3/search/jql` with `nextPageToken`. The removed `/rest/api/3/search` is never called. Counts come from the loaded issues.
 - **Pages and cap.** A view loads pages of 100 until the last page or until it holds 1,000 issues, and requests only the fields a row or card needs. Grouping needs the whole view in memory, and the cap keeps a large project from blocking the first paint.
 - **Async runtime.** `core` owns a multi-threaded tokio runtime on its own threads, with `reqwest` and rustls. The app sends commands to `core` and awaits the results on GPUI's foreground executor through runtime-agnostic channels. No Jira call runs on the UI thread.
-- **Optimistic writes.** `core` applies an edit, a transition, a parent change or a sprint move to its cached state at once and marks the issue as saving. When Jira refuses it, `core` restores the previous value and reports the error. A create is not optimistic: the issue appears once Jira returns its key.
+- **Filters are local.** The filter bar narrows the issues already loaded for the view. It sends no request, so typing in the text filter never waits on Jira. The JQL tooltip shows the equivalent query for the user's reference.
+- **Optimistic writes.** `core` applies an edit, a transition, a parent change or a sprint move to its cached state at once and marks the issue as saving. A move of several issues is one undoable unit: when any batch fails, every issue in the move returns to where it was. When Jira refuses it, `core` restores the previous value and reports the error. A create is not optimistic: the issue appears once Jira returns its key.
 - **Retries.** On 429 with `Retry-After`, `HttpJira` retries GET requests, the search POST and PUT edits, which set fields to values. It waits at least `Retry-After`, backs off exponentially with jitter, and gives up after 4 attempts. It never retries a create, a transition or a sprint move on its own, because a repeat could duplicate an issue or move it twice.
 - **Session cache.** `core` keeps the last result of each view in memory and renders it first on revisit, then refreshes. Nothing is persisted to disk except the config file.
 - **ADF.** `adf` deserializes the whole document into serde enums with an `Unknown(serde_json::Value)` variant, so nothing is dropped on read. It converts the editable subset both ways with `comrak`: paragraph, headings, bullet, ordered and task lists, code blocks with their language, block quotes, rules, hard breaks, the strong, em, code, strike and link marks, and mentions. A document that holds any node outside the subset renders with placeholders and stays read-only. This release does not splice unknown nodes back into saved ADF, so no save can erase them.
@@ -163,7 +170,7 @@ Required states:
 ## Constraints
 
 - Native only. GPUI and gpui-component draw every pixel. No webview, Tauri, Electron or embedded browser, including for Markdown.
-- Writes to Jira are limited to: create issue, edit the summary, description, assignee, priority and parent, run a transition, and move an issue into a sprint. No other request changes data on the site.
+- Writes to Jira are limited to: create issue, edit the summary, description, assignee, priority and parent, run a transition, move issues into a sprint, and move issues back to the backlog. No other request changes data on the site.
 - No save may erase content. A description that holds a node outside the editable subset is never sent back to Jira.
 - Every view and every write is scoped to one project. The app never moves an issue between projects.
 - The API token never appears in the config file, logs, `Debug` output, panic messages, fixtures or test snapshots. The `Authorization` header is redacted wherever requests are logged, and a test proves it.
@@ -179,12 +186,13 @@ Required states:
 - CI runs format, clippy with warnings denied, and tests on Linux, macOS and Windows, and all three pass.
 - The repository holds the GPL-3.0 `LICENSE`, a README with the build dependencies per OS and the "Linear-inspired" disclaimer, and `docs/ARCHITECTURE.md`, `docs/DEPENDENCIES.md` and `docs/ADF.md`.
 - wiremock tests prove: the Basic auth header shape, the search body, pagination across at least three pages by `nextPageToken`, the 1,000-issue cap, a 429 retried after `Retry-After` on a read and on an edit, giving up after 4 attempts, and no retry of a create or a transition after a 429.
-- wiremock tests prove the request shape of create with a parent, edit, clearing a parent with `update.parent.set.none`, a transition by id, and a move into a sprint.
+- wiremock tests prove the request shape of create with a parent, edit, clearing a parent with `update.parent.set.none`, a transition by id, a move into a sprint, and a move to the backlog. A move of 120 issues goes out as three calls of at most 50.
 - A test proves the token never appears in logged request output.
 - The sign-in journey works against a live site: a valid token opens the last project, a wrong token shows the rejected error, an unknown site shows the site error, a relaunch skips sign-in, and Sign out removes the keychain entry.
-- Against a live company-managed project with a scrum board and a live team-managed project with a kanban board, a reviewer can: create a Bug, a Story, a Task and an Epic; edit a summary and a description; change status, assignee, priority and epic; add an issue to an epic and remove it; drag a card across the board; and move a backlog issue onto the board. Each change shows in Jira's web UI afterwards.
+- Against a live company-managed project with a scrum board and a live team-managed project with a kanban board, a reviewer can: create a Bug, a Story, a Task and an Epic; edit a summary and a description; change status, assignee, priority and epic; add an issue to an epic and remove it; drag a card across the board; filter the scrum backlog by epic and assignee, select several issues, and drag them into a future sprint; and move a kanban backlog issue onto the board. Each change shows in Jira's web UI afterwards.
 - With `FakeJira` refusing a write, a GPUI test shows the change undone and the error shown. With `FakeJira` requiring a field on a transition, a test shows the status unchanged and the browser offered.
 - A board test against `FakeJira` shows a forbidden move snapping back with its reason.
+- A backlog test against `FakeJira` shows a multi-issue move into a sprint, the section counts updating, and a refused move returning every issue to its section.
 - An epic's progress bar matches its children's status categories, and adding or removing a child updates it.
 - Golden tests in `fixtures/adf/` pin ADF to Markdown and Markdown to ADF for every node in the editable subset, and round-trip tests show ADF to Markdown to ADF is identical for that subset.
 - An issue whose description holds a panel, a table and an image renders a placeholder for each in document order, offers no Edit, and sends no description in any request.
@@ -198,8 +206,9 @@ Required states:
 - Labels, components, fix versions, due dates, story points and custom fields beyond what create requires.
 - Sub-tasks, and changing an issue's type.
 - Cross-project views: My issues, saved views, free-form JQL and search across projects.
-- Sprint planning: creating, starting or completing a sprint, and moving issues between future sprints.
-- Ranking the backlog or the board by drag.
+- Creating, starting, completing or editing a sprint. The app moves issues between existing sprints only.
+- Ranking the backlog or the board by drag. A drop changes the sprint, not the rank.
+- Saved filters, filters by label or component, and filters shared between users.
 - Board swimlanes, WIP limits and quick filters.
 - Splicing unknown ADF nodes back into a saved description. Those descriptions stay read-only.
 - Moving an issue to another project, and epics whose children live in other projects being managed from here.

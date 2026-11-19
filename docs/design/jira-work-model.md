@@ -32,8 +32,8 @@ The sidebar lists the site's projects. Under each project sit three views. Each 
 | Status and its category | The project's workflow steps, each in to do, in progress or done | Issues groups rows by status, in category order: in progress, then to do, then done. | Workflow states and their types |
 | Transition | A move the workflow allows between two statuses | Changing the status, from the picker, the S key, or a drag on the board. Only the moves the workflow allows are offered. | Changing the state |
 | Board and its columns | The board configuration, mapping each column to statuses | Board shows Jira's columns, in Jira's order. Dropping a card in a column runs a transition to that column's status. | Board view |
-| Sprint | A time box on a scrum board | The active sprint's name and end date above a scrum board. The sprint itself is read-only. | Cycle |
-| Backlog | Open work outside the active sprint, or in the kanban backlog column | The Backlog tab next to Board, in Jira's rank order, with one action to move an issue onto the board | Backlog |
+| Sprint | A time box on a scrum board, active or future | The active sprint's name and end date above a scrum board. In the Backlog tab, one section per active and future sprint, with dates, goal and counts. Issues move between sprints. The sprints themselves are created and started in Jira. | Cycle |
+| Backlog | Open work in no sprint, or in the kanban backlog column | The last section of the Backlog tab, in Jira's rank order. Filters, multi-select and drag move issues into a sprint, or onto the board for kanban. | Backlog |
 | Sub-task | An issue type one level below Bug, Story and Task | Not shown in release 1 | Sub-issue |
 
 ## Rules that follow from the mapping

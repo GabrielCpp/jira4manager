@@ -10,6 +10,9 @@ const I = {
   epics: '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8.8 1.8L3.5 9h4l-.8 5.2L12.5 7h-4z"/></svg>',
   board: '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2.5" width="3.4" height="11" rx="1"/><rect x="6.3" y="2.5" width="3.4" height="7" rx="1"/><rect x="10.6" y="2.5" width="3.4" height="9" rx="1"/></svg>',
   chev: (c) => `<svg class="chev" width="10" height="10" viewBox="0 0 10 10" style="${c ? 'transform:rotate(-90deg)' : ''}"><path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`,
+  person: '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5.5" r="2.6"/><path d="M3 13.5c.6-2.6 2.6-4 5-4s4.4 1.4 5 4"/></svg>',
+  search: '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>',
+  check: '<svg width="9" height="9" viewBox="0 0 10 10"><path d="M2 5.2l2 2 4-4.4" fill="none" stroke="#fff" stroke-width="1.6"/></svg>',
   caret: '<svg width="9" height="9" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
 };
 
@@ -148,7 +151,11 @@ const PROJECTS = [
     key: 'CASE', name: 'Case Platform', team: 'Intake team', color: '#7c6cf0', style: 'Company-managed',
     statuses: ['In Progress', 'In Review', 'To Do', 'Done'], initial: 'To Do',
     noTransition: [['In Review', 'To Do']],
-    board: { name: 'CASE board', type: 'scrum', sprint: 'Sprint 14', ends: 'ends Nov 28', columns: [['To Do', ['To Do']], ['In Progress', ['In Progress']], ['In Review', ['In Review']], ['Done', ['Done']]] },
+    board: { name: 'CASE board', type: 'scrum', sprint: 'Sprint 14', ends: 'ends Nov 28', sprints: [
+      { id: 14, name: 'Sprint 14', state: 'active', dates: 'Nov 17 to Nov 28', goal: 'Intake v2 on staging' },
+      { id: 15, name: 'Sprint 15', state: 'future', dates: 'Dec 1 to Dec 12', goal: 'Audit trail, first slice' },
+      { id: 16, name: 'Sprint 16', state: 'future', dates: 'No dates yet', goal: '' },
+    ], columns: [['To Do', ['To Do']], ['In Progress', ['In Progress']], ['In Review', ['In Review']], ['Done', ['Done']]] },
   },
   {
     key: 'CASE1', name: 'Case Portal', team: 'Portal team', color: '#3fb68b', style: 'Team-managed',
@@ -213,8 +220,11 @@ let ISSUES = [
   ['OPS-12', 'Task', 'Rotate the staging database credentials', 'To Do', 1, 'me', null, '2d', SHORT, true],
   ['OPS-14', 'Task', 'Alert when the backup runs over an hour', 'In Progress', 1, 'ada', null, '6h', SHORT, true],
   ['OPS-9', 'Bug', 'Support inbox forwards to the old address', 'Done', 3, 'rin', null, '15d', null, true],
+  ['CASE-143', 'Story', 'Export the audit trail as CSV', 'To Do', 3, null, 'CASE-120', '2d', null, 15],
 ].map(([key, type, summary, status, priority, assignee, parent, updated, desc, sprint]) =>
-  ({ key, proj: key.split('-')[0], type, summary, status, priority, assignee, parent, updated, desc, sprint }));
+  ({ key, proj: key.split('-')[0], type, summary, status, priority, assignee, parent, updated, desc, sprint: key.startsWith('CASE-') ? (sprint === true ? 14 : sprint || null) : null }));
+issueByKey('CASE-122').sprint = 15;
+function issueByKey(k) { return ISSUES.find((i) => i.key === k); }
 
 const M = window.MOCK || {};
 const state = {
@@ -228,6 +238,12 @@ const state = {
   boardTab: M.boardTab || 'board',
   type: 'all',
   epic: 'any',
+  assignee: 'any',
+  prio: 'any',
+  status: 'any',
+  q: '',
+  picked: new Set(),
+  lastPicked: null,
   showDone: false,
   sel: 0,
   card: null,
@@ -318,9 +334,20 @@ function progressBar(key) {
 }
 
 function filtered(list) {
+  const q = state.q.trim().toLowerCase();
   return list
     .filter((i) => state.type === 'all' || i.type === state.type)
-    .filter((i) => state.epic === 'any' || (state.epic === 'none' ? !i.parent : i.parent === state.epic));
+    .filter((i) => state.epic === 'any' || (state.epic === 'none' ? !i.parent : i.parent === state.epic))
+    .filter((i) => state.assignee === 'any' || (state.assignee === 'none' ? !i.assignee : i.assignee === state.assignee))
+    .filter((i) => state.prio === 'any' || i.priority === state.prio)
+    .filter((i) => state.status === 'any' || i.status === state.status)
+    .filter((i) => !q || i.key.toLowerCase().includes(q) || i.summary.toLowerCase().includes(q));
+}
+const filtersOn = () => state.type !== 'all' || state.epic !== 'any' || state.assignee !== 'any' || state.prio !== 'any' || state.status !== 'any' || !!state.q.trim();
+const inBacklog = () => state.view === 'board' && state.boardTab === 'backlog' && hasBacklog();
+const pickable = (i) => cat(i.status) !== 'done';
+function clearFilters() {
+  Object.assign(state, { type: 'all', epic: 'any', assignee: 'any', prio: 'any', status: 'any', q: '', sel: 0 });
 }
 function listIssues() {
   if (state.data === 'empty') return [];
@@ -338,7 +365,7 @@ function groupsOf(items) {
     .filter((g) => g.items.length);
 }
 function ordered() {
-  if (state.view === 'board' && state.boardTab === 'backlog') return backlogIssues();
+  if (state.view === 'board' && state.boardTab === 'backlog') return backlogSections().flatMap((g) => state.collapsed[g.key] ? [] : g.items);
   const items = state.view === 'epics' ? listEpics() : listIssues();
   return groupsOf(items).flatMap((g) => state.collapsed[g.s] ? [] : g.items);
 }
@@ -346,13 +373,23 @@ function boardIssues() {
   if (state.data === 'empty') return [];
   const p = project();
   return filtered(ISSUES.filter((i) => i.proj === p.key && !isEpic(i)))
-    .filter((i) => p.board.type === 'scrum' ? i.sprint : i.status !== p.board.backlogStatus);
+    .filter((i) => p.board.type === 'scrum' ? i.sprint === activeSprint(p)?.id : i.status !== p.board.backlogStatus);
 }
 function backlogIssues() {
   if (state.data === 'empty') return [];
   const p = project();
   return filtered(ISSUES.filter((i) => i.proj === p.key && !isEpic(i)))
     .filter((i) => p.board.type === 'scrum' ? !i.sprint && cat(i.status) !== 'done' : i.status === p.board.backlogStatus);
+}
+const activeSprint = (p = project()) => (p.board.sprints || []).find((x) => x.state === 'active');
+function backlogSections() {
+  const p = project();
+  if (p.board.type !== 'scrum') return [{ key: 'backlog', items: backlogIssues() }];
+  if (state.data === 'empty') return [];
+  const mine = filtered(ISSUES.filter((i) => i.proj === p.key && !isEpic(i)));
+  const all = ISSUES.filter((i) => i.proj === p.key && !isEpic(i));
+  return p.board.sprints.map((sp) => ({ key: `sprint:${sp.id}`, sprint: sp, items: mine.filter((i) => i.sprint === sp.id), all: all.filter((i) => i.sprint === sp.id).length }))
+    .concat([{ key: 'backlog', items: backlogIssues(), all: all.filter((i) => !i.sprint && pickable(i)).length }]);
 }
 const hasBacklog = (p = project()) => p.board.type === 'scrum' || !!p.board.backlogStatus;
 
@@ -388,6 +425,23 @@ function epicFilter() {
   const label = state.epic === 'any' ? 'Any epic' : state.epic === 'none' ? 'No epic' : issue(state.epic).summary;
   return `<span class="filter ${state.epic !== 'any' ? 'on' : ''}" data-pick="epic-filter">${typeIcon('Epic', 12)}<span class="t">${esc(label)}</span>${I.caret}</span>`;
 }
+function pillFilter(kind, icon, label, on) {
+  return `<span class="filter ${on ? 'on' : ''}" data-pick="${kind}">${icon}<span class="t">${esc(label)}</span>${I.caret}</span>`;
+}
+function moreFilters() {
+  const who = state.assignee === 'any' ? 'Any assignee' : state.assignee === 'none' ? 'Unassigned' : PEOPLE[state.assignee].name;
+  const pr = state.prio === 'any' ? 'Any priority' : PRIORITIES[state.prio];
+  const st = state.status === 'any' ? 'Any status' : state.status;
+  return pillFilter('assignee-filter', state.assignee === 'any' || state.assignee === 'none' ? I.person : avatar(state.assignee, 'xs'), who, state.assignee !== 'any') +
+    pillFilter('priority-filter', priorityIcon(state.prio === 'any' ? 2 : state.prio), pr, state.prio !== 'any') +
+    pillFilter('status-filter', statusIcon(state.status === 'any' ? 'To Do' : state.status, 12), st, state.status !== 'any');
+}
+function searchBox() {
+  return `<label class="search">${I.search}<input id="q" value="${esc(state.q)}" placeholder="Key or text" autocomplete="off" spellcheck="false"><span class="kbd">/</span></label>`;
+}
+function clearLink() {
+  return filtersOn() ? '<span class="clear" data-act="clear-filters">Clear filters</span>' : '';
+}
 function doneToggle(what) {
   return `<span class="filter ${state.showDone ? 'on' : ''}" data-act="toggle-done">${statusIcon('Done', 12)}${state.showDone ? `Showing done ${what}` : `Show done ${what}`}</span>`;
 }
@@ -398,26 +452,34 @@ function jqlFor() {
   if (state.view === 'board') return `Board "${project().board.name}" (${project().board.type})`;
   const type = state.type === 'all' ? ' AND issuetype in standardIssueTypes()' : ` AND issuetype = ${state.type}`;
   const epic = state.epic === 'any' ? '' : state.epic === 'none' ? ' AND parent is EMPTY' : ` AND parent = ${state.epic}`;
-  return `project = ${p}${type}${epic}${done} ORDER BY Rank`;
+  const who = state.assignee === 'any' ? '' : state.assignee === 'none' ? ' AND assignee is EMPTY' : ` AND assignee = "${PEOPLE[state.assignee].name}"`;
+  const pr = state.prio === 'any' ? '' : ` AND priority = ${PRIORITIES[state.prio]}`;
+  const st = state.status === 'any' ? '' : ` AND status = "${state.status}"`;
+  const q = state.q.trim() ? ` AND text ~ "${state.q.trim()}"` : '';
+  return `project = ${p}${type}${epic}${who}${pr}${st}${q}${done} ORDER BY Rank`;
 }
 function renderToolbar() {
   const p = project();
   let left = '', right = '';
   if (state.view === 'issues') {
     const n = listIssues().length;
-    left = typeChips() + epicFilter() + doneToggle('issues');
+    left = typeChips() + epicFilter() + moreFilters() + searchBox() + doneToggle('issues') + clearLink();
     right = `<span class="total" title="${esc(jqlFor())}">${n} issue${n === 1 ? '' : 's'}</span>`;
   } else if (state.view === 'epics') {
     const n = listEpics().length;
     left = doneToggle('epics');
     right = `<span class="total" title="${esc(jqlFor())}">${n} epic${n === 1 ? '' : 's'}</span>`;
   } else {
-    left = typeChips() + epicFilter();
-    right = p.board.type === 'scrum'
-      ? `<span class="pill">${statusIcon('In Progress', 12)}${p.board.sprint} · ${p.board.ends}</span><span class="total">Scrum board</span>`
-      : `<span class="total">Kanban board</span>`;
+    left = typeChips() + epicFilter() + moreFilters() + searchBox() + clearLink();
+    right = inBacklog() ? ''
+      : p.board.type === 'scrum'
+        ? `<span class="pill" title="Scrum board">${statusIcon('In Progress', 12)}${p.board.sprint} · ${p.board.ends}</span>`
+        : '<span class="total">Kanban board</span>';
   }
+  const had = document.activeElement?.id === 'q';
+  const pos = had ? document.activeElement.selectionStart : 0;
   $('#toolbar').innerHTML = `<div class="tb-left">${left}</div><span class="spacer"></span>${right}`;
+  if (had && $('#q')) { $('#q').focus(); $('#q').setSelectionRange(pos, pos); }
 }
 
 function skeleton() {
@@ -430,8 +492,13 @@ function emptyBox(title, body, btn = '') {
   return `<div class="empty"><svg width="28" height="28" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="8" cy="8" r="5.5"/><path d="M5.5 8.2l1.7 1.7 3.3-3.4"/></svg><h3>${title}</h3><p>${body}</p>${btn}</div>`;
 }
 
-function issueRow(i, flat) {
-  return `<div class="row ${flat.indexOf(i) === state.sel ? 'sel' : ''} ${state.pending[i.key] ? 'pending' : ''}" data-id="${i.key}">
+function issueRow(i, flat, o = {}) {
+  const on = state.picked.has(i.key);
+  const box = o.pick === undefined ? '' : o.pick
+    ? `<span class="pick-box ${on ? 'on' : ''}" data-pickrow="${i.key}" title="Select (X)">${on ? I.check : ''}</span>`
+    : '<span class="pick-box gap"></span>';
+  return `<div class="row ${flat.indexOf(i) === state.sel ? 'sel' : ''} ${state.pending[i.key] ? 'pending' : ''} ${on ? 'picked' : ''}" data-id="${i.key}" ${o.drag ? 'draggable="true"' : ''}>
+    ${box}
     ${priorityIcon(i.priority)}
     <span class="id">${i.key}</span>
     ${statusIcon(i.status)}
@@ -439,6 +506,7 @@ function issueRow(i, flat) {
     <span class="title">${esc(i.summary)}</span>
     <span class="meta">${epicChip(i.parent)}</span>
     ${avatar(i.assignee)}
+    ${o.act || ''}
     <span class="date" title="Updated">${i.updated}</span>
   </div>`;
 }
@@ -502,14 +570,83 @@ function renderBoard() {
     </div>`;
   }).join('')}</div>`;
 }
+function catCounts(items) {
+  const n = (k) => items.filter((i) => cat(i.status) === k).length;
+  return `<span class="cc" title="To do"><i class="c-new"></i>${n('new')}</span><span class="cc" title="In progress"><i class="c-ip"></i>${n('indeterminate')}</span><span class="cc" title="Done"><i class="c-done"></i>${n('done')}</span>`;
+}
+function moveBtn(i) {
+  if (cat(i.status) === 'done') return '<span class="row-act-gap"></span>';
+  return `<button class="btn sm row-act" data-pick="move-sprint" data-key="${i.key}">Move to ${I.caret}</button>`;
+}
+function renderSprintBacklog() {
+  const p = project();
+  const flat = ordered();
+  const row = (i) => issueRow(i, flat, { pick: pickable(i), drag: pickable(i), act: moveBtn(i) });
+  const of = (g) => filtersOn() ? `${g.items.length} of ${g.all}` : `${g.items.length} issue${g.items.length === 1 ? '' : 's'}`;
+  return backlogSections().map((g) => {
+    const c = state.collapsed[g.key];
+    const sp = g.sprint;
+    const head = sp
+      ? `<div class="sprint-head" data-group="${g.key}">${I.chev(c)}<b>${esc(sp.name)}</b><span class="state ${sp.state}">${sp.state === 'active' ? 'Active' : 'Future'}</span><span class="muted">${esc(sp.dates)}</span>${sp.goal ? `<span class="goal">${esc(sp.goal)}</span>` : ''}<span class="spacer"></span>${catCounts(g.items)}<span class="n">${of(g)}</span></div>`
+      : `<div class="sprint-head backlog" data-group="backlog">${I.chev(c)}<b>Backlog</b><span class="muted">Open issues in no sprint</span><span class="spacer"></span>${catCounts(g.items)}<span class="n">${of(g)}</span></div>`;
+    const empty = filtersOn() && g.all ? 'No issue here matches the filters.' : sp ? `No issues in ${esc(sp.name)} yet. Drag issues here or use Move to.` : 'Every open issue is in a sprint.';
+    return `<div class="sprint-sec" data-dropsprint="${sp ? sp.id : 'backlog'}">` + head + (c ? '' : g.items.map(row).join('') || `<div class="sprint-empty">${empty}</div>`) + '</div>';
+  }).join('') + selBar() + `<div class="backlog-note">Sprints are created, started and completed in Jira. <a class="lnk" data-act="browser-backlog">Open the backlog in the browser</a></div>`;
+}
+function selBar() {
+  const n = state.picked.size;
+  if (!n) return '';
+  const scrum = project().board.type === 'scrum';
+  return `<div class="sel-bar"><b>${n} selected</b>${scrum
+    ? `<button class="btn-primary sm" data-pick="move-picked">Move to ${I.caret}</button><span class="hint">or drag them onto a sprint · <span class="kbd">M</span></span>`
+    : '<button class="btn-primary sm" data-act="picked-to-board">Move to board</button>'}<span class="spacer"></span><span class="clear" data-act="clear-picked">Clear <span class="kbd">Esc</span></span></div>`;
+}
+function togglePick(key, range) {
+  const flat = ordered().filter(pickable);
+  if (range && state.lastPicked) {
+    const a = flat.findIndex((i) => i.key === state.lastPicked);
+    const b = flat.findIndex((i) => i.key === key);
+    if (a >= 0 && b >= 0) flat.slice(Math.min(a, b), Math.max(a, b) + 1).forEach((i) => state.picked.add(i.key));
+  } else if (state.picked.has(key)) state.picked.delete(key);
+  else if (pickable(issue(key))) state.picked.add(key);
+  state.lastPicked = key;
+}
+function moveMany(keys, to) {
+  const p = project();
+  const xs = keys.map(issue).filter((x) => x && pickable(x) && x.sprint !== to);
+  if (!xs.length) return;
+  const before = xs.map((x) => [x, x.sprint]);
+  xs.forEach((x) => { x.sprint = to; state.pending[x.key] = true; });
+  state.picked.clear();
+  render();
+  setTimeout(() => {
+    xs.forEach((x) => delete state.pending[x.key]);
+    const name = to ? p.board.sprints.find((sp) => sp.id === to).name : 'the backlog';
+    if (state.write === 'fail') {
+      before.forEach(([x, sp]) => { x.sprint = sp; });
+      toast(`${I.warn}<span>Couldn't move ${xs.length === 1 ? xs[0].key : `${xs.length} issues`}. Jira answered 500. Nothing moved.</span>`, 4000);
+    } else {
+      xs.forEach((x) => { x.updated = 'now'; });
+      toast(xs.length === 1 ? `${xs[0].key} moved to ${name}` : `Moved ${xs.length} issues to ${name}`);
+    }
+    render();
+  }, 650);
+}
+function sprintMenuItems(exclude, allowBacklog) {
+  const p = project();
+  return p.board.sprints.filter((sp) => sp.id !== exclude)
+    .map((sp) => ({ value: sp.id, html: `<span>${esc(sp.name)}</span><span class="muted sm">${sp.state === 'active' ? 'active, on the board' : sp.dates}</span>` }))
+    .concat(allowBacklog ? [{ value: null, html: '<span>Backlog</span><span class="muted sm">no sprint</span>' }] : []);
+}
 function renderBacklog() {
   const p = project();
+  if (p.board.type === 'scrum') return renderSprintBacklog();
   const items = backlogIssues();
   if (!items.length) return emptyBox('The backlog is empty', p.board.type === 'scrum' ? `Every open issue is in ${p.board.sprint}.` : 'Every open issue is on the board.');
   const flat = ordered();
   const act = p.board.type === 'scrum' ? `Move to ${p.board.sprint}` : 'Move to board';
   return `<div class="backlog-note">${p.board.type === 'scrum' ? `Issues not in ${p.board.sprint}, in the order Jira ranks them.` : `Issues in the ${p.board.backlogStatus} status, in the order Jira ranks them.`}</div>` +
-    items.map((i) => issueRow(i, flat).replace('<span class="date"', `<button class="btn sm row-act" data-act="to-board" data-key="${i.key}">${act}</button><span class="date"`)).join('');
+    items.map((i) => issueRow(i, flat, { pick: true, act: `<button class="btn sm row-act" data-act="to-board" data-key="${i.key}">${act}</button>` })).join('') + selBar();
 }
 function renderContent() {
   if (state.data === 'loading') return skeleton();
@@ -770,6 +907,29 @@ function pick(kind, anchor) {
       .concat(epicsOf().map((e) => ({ value: e.key, html: `${typeIcon('Epic')}<span class="id">${e.key}</span><span class="ell">${esc(e.summary)}</span>`, current: state.epic === e.key })));
     return openMenu(anchor, 'Filter by epic', items, (v) => { state.epic = v; state.sel = 0; render(); });
   }
+  if (kind === 'move-sprint') {
+    const x = issue(anchor.dataset.key);
+    const p = project(x.proj);
+    if (state.picked.has(x.key) && state.picked.size > 1) return pick('move-picked', anchor);
+    return openMenu(anchor, `Move ${x.key} to`, sprintMenuItems(x.sprint, !!x.sprint), (v) => moveMany([x.key], v));
+  }
+  if (kind === 'move-picked') {
+    return openMenu(anchor, `Move ${state.picked.size} issue${state.picked.size === 1 ? '' : 's'} to`, sprintMenuItems(null, true), (v) => moveMany([...state.picked], v));
+  }
+  const setF = (k) => (v) => { state[k] = v; state.sel = 0; render(); };
+  if (kind === 'assignee-filter') {
+    const items = [{ value: 'any', html: 'Any assignee', current: state.assignee === 'any' }, { value: 'none', html: `${avatar(null)}<span class="muted">Unassigned</span>`, current: state.assignee === 'none' }]
+      .concat(Object.entries(PEOPLE).map(([k, v]) => ({ value: k, html: `${avatar(k)}<span>${esc(v.name)}</span>`, current: state.assignee === k })));
+    return openMenu(anchor, 'Filter by assignee', items, setF('assignee'));
+  }
+  if (kind === 'priority-filter') {
+    return openMenu(anchor, 'Filter by priority', [{ value: 'any', html: 'Any priority', current: state.prio === 'any' }]
+      .concat(PRIORITIES.map((x, n) => ({ value: n, html: `${priorityIcon(n)}<span>${x}</span>`, current: state.prio === n }))), setF('prio'));
+  }
+  if (kind === 'status-filter') {
+    return openMenu(anchor, `Filter by ${state.proj} status`, [{ value: 'any', html: 'Any status', current: state.status === 'any' }]
+      .concat(project().statuses.map((x) => ({ value: x, html: `${statusIcon(x)}<span>${esc(x)}</span>`, current: state.status === x }))), setF('status'));
+  }
   if (!i) return;
   if (kind === 'status') {
     const p = project(i.proj);
@@ -840,7 +1000,9 @@ function openIssue(key) {
   render();
 }
 function nav(projKey, view) {
-  Object.assign(state, { proj: projKey, view, sel: 0, card: null, openId: null, editing: null, type: 'all', epic: 'any', boardTab: 'board' });
+  Object.assign(state, { proj: projKey, view, card: null, openId: null, editing: null, boardTab: 'board' });
+  clearFilters();
+  state.picked.clear();
   state.expanded[projKey] = true;
   $('#app').classList.remove('mobile-nav');
   if (state.data !== 'loaded') return render();
@@ -900,7 +1062,7 @@ function submitCreate(e) {
     const created = {
       key: `${p.key}-${n}`, proj: p.key, type, summary, status: p.initial, priority: +f.get('priority'),
       assignee: f.get('assignee') || null, parent: type === 'Epic' ? null : f.get('parent') || null,
-      updated: 'now', desc: md ? fromMd(md) : null, sprint: p.board.type !== 'scrum',
+      updated: 'now', desc: md ? fromMd(md) : null, sprint: null,
     };
     ISSUES.push(created);
     state.modal = null;
@@ -956,6 +1118,7 @@ document.addEventListener('click', (e) => {
     if (a === 'retry' || a === 'refresh') refresh();
     if (a === 'close-detail') { state.openId = null; state.editing = null; render(); }
     if (a === 'browser') toast(`Opens ${SITE}/browse/${act.dataset.key || state.openId} in your browser`);
+    if (a === 'browser-backlog') toast(`Opens the ${state.proj} backlog on ${SITE} in your browser`);
     if (a === 'theme') setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
     if (a === 'signout') signOut();
     if (a === 'mobile-nav') $('#app').classList.toggle('mobile-nav');
@@ -965,7 +1128,9 @@ document.addEventListener('click', (e) => {
     if (a === 'new-child' && i) newIssue(i.key);
     if (a === 'close-modal') closeModal();
     if (a === 'toggle-done') { state.showDone = !state.showDone; state.sel = 0; render(); }
-    if (a === 'clear-filters') { state.type = 'all'; state.epic = 'any'; render(); }
+    if (a === 'clear-filters') { clearFilters(); render(); }
+    if (a === 'clear-picked') { state.picked.clear(); render(); }
+    if (a === 'picked-to-board') { const p = project(); [...state.picked].forEach((k) => setStatus(issue(k), p.board.columns[0][1][0])); state.picked.clear(); render(); }
     if (a === 'edit-summary') { state.editing = 'summary'; render(); }
     if (a === 'edit-desc') { state.editing = 'desc'; state.descTab = 'write'; render(); }
     if (a === 'cancel-desc') { state.editing = null; render(); }
@@ -974,7 +1139,7 @@ document.addEventListener('click', (e) => {
     if (a === 'to-board') {
       const x = issue(act.dataset.key);
       const p = project(x.proj);
-      if (p.board.type === 'scrum') write(x, { sprint: true }, { done: `${x.key} moved to ${p.board.sprint}` });
+      if (p.board.type === 'scrum') moveMany([x.key], activeSprint(p).id);
       else setStatus(x, p.board.columns[0][1][0]);
     }
     return;
@@ -991,16 +1156,25 @@ document.addEventListener('click', (e) => {
   if (nv) { const [p, v] = nv.dataset.nav.split(':'); return nav(p, v); }
   const g = e.target.closest('[data-group]');
   if (g) { state.collapsed[g.dataset.group] = !state.collapsed[g.dataset.group]; return render(); }
+  const pr = e.target.closest('[data-pickrow]');
+  if (pr) { togglePick(pr.dataset.pickrow, e.shiftKey); return render(); }
   const row = e.target.closest('[data-id]');
+  if (row && inBacklog() && (e.ctrlKey || e.metaKey || e.shiftKey)) { togglePick(row.dataset.id, e.shiftKey); return render(); }
   if (row) return openIssue(row.dataset.id);
   const c = e.target.closest('[data-card]');
   if (c) return openIssue(c.dataset.card);
   const ty = e.target.closest('[data-type]');
   if (ty) { state.type = ty.dataset.type; state.sel = 0; return render(); }
   const bt = e.target.closest('[data-btab]');
-  if (bt) { state.boardTab = bt.dataset.btab; state.sel = 0; return render(); }
+  if (bt) { state.boardTab = bt.dataset.btab; state.sel = 0; state.picked.clear(); return render(); }
 });
 
+document.addEventListener('input', (e) => {
+  if (e.target.id !== 'q') return;
+  state.q = e.target.value;
+  state.sel = 0;
+  render();
+});
 document.addEventListener('change', (e) => {
   if (e.target.name === 'type' && e.target.closest('#create-form')) {
     const t = e.target.value;
@@ -1012,6 +1186,21 @@ document.addEventListener('change', (e) => {
 });
 
 document.addEventListener('dragstart', (e) => {
+  const r = e.target.closest?.('.row[draggable]');
+  if (r) {
+    const key = r.dataset.id;
+    const keys = state.picked.has(key) ? [...state.picked] : [key];
+    e.dataTransfer.setData('text/x-keys', JSON.stringify(keys));
+    e.dataTransfer.effectAllowed = 'move';
+    const ghost = document.createElement('div');
+    ghost.className = 'drag-ghost';
+    ghost.textContent = keys.length > 1 ? `${keys.length} issues` : key;
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 12, 12);
+    setTimeout(() => ghost.remove());
+    keys.forEach((k) => document.querySelector(`.row[data-id="${k}"]`)?.classList.add('dragging'));
+    return;
+  }
   const c = e.target.closest('[data-card]');
   if (!c) return;
   e.dataTransfer.setData('text/plain', c.dataset.card);
@@ -1019,13 +1208,21 @@ document.addEventListener('dragstart', (e) => {
 });
 document.addEventListener('dragend', () => document.querySelectorAll('.dragging, .over').forEach((x) => x.classList.remove('dragging', 'over')));
 document.addEventListener('dragover', (e) => {
-  const z = e.target.closest('[data-drop]');
+  const z = e.target.closest('[data-drop], [data-dropsprint]');
   if (!z) return;
   e.preventDefault();
   document.querySelectorAll('.over').forEach((x) => x !== z && x.classList.remove('over'));
   z.classList.add('over');
 });
 document.addEventListener('drop', (e) => {
+  const sz = e.target.closest('[data-dropsprint]');
+  if (sz) {
+    e.preventDefault();
+    const keys = JSON.parse(e.dataTransfer.getData('text/x-keys') || '[]');
+    const v = sz.dataset.dropsprint;
+    sz.classList.remove('over');
+    return moveMany(keys, v === 'backlog' ? null : +v);
+  }
   const z = e.target.closest('[data-drop]');
   if (!z) return;
   e.preventDefault();
@@ -1036,9 +1233,11 @@ document.addEventListener('keydown', (e) => {
   if (state.screen !== 'app') return;
   if (e.key === 'Escape') {
     if ($('#menu').classList.contains('open')) return closeMenu();
+    if (e.target.id === 'q') { e.target.blur(); return; }
     if (state.modal) return closeModal();
     if (state.editing) { state.editing = null; return render(); }
     if (state.openId) { state.openId = null; return render(); }
+    if (state.picked.size) { state.picked.clear(); return render(); }
     $('#knobs').classList.remove('open');
     return;
   }
@@ -1056,6 +1255,20 @@ document.addEventListener('keydown', (e) => {
   if (e.target.matches('input, textarea, select') || e.ctrlKey || e.metaKey || e.altKey || state.modal) return;
   const k = e.key.toLowerCase();
   if (k === 'c') { e.preventDefault(); return newIssue(); }
+  if (e.key === '/' && $('#q')) { e.preventDefault(); return $('#q').focus(); }
+  if (inBacklog() && !state.openId && (k === 'x' || k === 'm')) {
+    e.preventDefault();
+    const cur = ordered()[state.sel];
+    if (k === 'x' && cur) { togglePick(cur.key, e.shiftKey); return render(); }
+    if (k === 'm') {
+      if (project().board.type !== 'scrum') return;
+      if (!state.picked.size && cur && pickable(cur)) state.picked.add(cur.key);
+      render();
+      const anchor = document.querySelector('[data-pick=move-picked]');
+      if (anchor) pick('move-picked', anchor);
+    }
+    return;
+  }
   if (state.openId && ['s', 'a', 'p', 'e'].includes(k)) {
     const kind = { s: 'status', a: 'assignee', p: 'priority', e: 'epic' }[k];
     const anchor = document.querySelector(`#d-props [data-pick=${kind}]`);
