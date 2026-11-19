@@ -118,6 +118,7 @@ const SHELL = `
         <label><input type="radio" name="write" value="ok" checked>Succeeds</label>
         <label><input type="radio" name="write" value="fail">Fails (500)</label>
         <label><input type="radio" name="write" value="screen">Status change needs a Jira screen</label>
+        <label><input type="radio" name="write" value="field">Jira rejects a field (400)</label>
       </fieldset>
       <fieldset>
         <legend>Theme</legend>
@@ -236,6 +237,69 @@ const LABELS = {
   'CASE1-49': ['a11y', 'design'], 'CASE1-36': ['notifications'], 'OPS-12': ['security'], 'OPS-14': ['backups'], 'OPS-9': ['support'],
 };
 ISSUES.forEach((i) => { i.labels = LABELS[i.key] || []; });
+const COMPONENTS = { CASE: ['Intake', 'Review queue', 'Audit', 'Attachments'], CASE1: [], OPS: ['Backups', 'Databases', 'Email'] };
+const VERSIONS = { CASE: ['2026.12', '2027.01'], CASE1: [], OPS: [] };
+const FIELDS = {
+  priority: { name: 'Priority', kind: 'priority', key: 'p' },
+  assignee: { name: 'Assignee', kind: 'user', assignable: true, key: 'a' },
+  parent: { name: 'Epic', kind: 'epic', key: 'e' },
+  customfield_10020: { name: 'Sprint', kind: 'sprint' },
+  labels: { name: 'Labels', kind: 'labels', key: 'l' },
+  components: { name: 'Components', kind: 'multi', options: (p) => COMPONENTS[p] },
+  fixVersions: { name: 'Fix versions', kind: 'multi', options: (p) => VERSIONS[p] },
+  duedate: { name: 'Due date', kind: 'date' },
+  environment: { name: 'Environment', kind: 'para' },
+  customfield_10016: { name: 'Story Points', kind: 'number' },
+  customfield_10101: { name: 'Reviewer', kind: 'user' },
+  customfield_10102: { name: 'QA engineer', kind: 'user' },
+  customfield_10103: { name: 'Severity', kind: 'select', options: () => ['S1 Critical', 'S2 Major', 'S3 Minor', 'S4 Trivial'] },
+  customfield_10104: { name: 'Acceptance criteria', kind: 'para' },
+  customfield_10105: { name: 'Root cause', kind: 'cascade' },
+  customfield_10200: { name: 'Story point estimate', kind: 'number' },
+  customfield_10201: { name: 'Designer', kind: 'user' },
+  customfield_10202: { name: 'Browsers', kind: 'multi', options: () => ['Chrome', 'Firefox', 'Safari', 'Edge'] },
+  customfield_10300: { name: 'Affected service', kind: 'cascade' },
+};
+const SCREENS = {
+  'CASE:Bug': ['customfield_10103!', 'priority', 'assignee', 'customfield_10101', 'customfield_10102', 'parent', 'customfield_10020', 'labels', 'components', 'fixVersions', 'environment', 'customfield_10105'],
+  'CASE:Story': ['priority', 'assignee', 'customfield_10101', 'customfield_10102', 'customfield_10016', 'parent', 'customfield_10020', 'labels', 'components', 'fixVersions', 'duedate', 'customfield_10104'],
+  'CASE:Task': ['priority', 'assignee', 'customfield_10101', 'parent', 'customfield_10020', 'labels', 'components', 'duedate'],
+  'CASE:Epic': ['priority', 'assignee', 'labels', 'components', 'fixVersions', 'duedate'],
+  'CASE1:Bug': ['priority', 'assignee', 'customfield_10202', 'parent', 'labels', 'duedate', 'environment'],
+  'CASE1:Story': ['priority', 'assignee', 'customfield_10201', 'customfield_10200', 'parent', 'labels', 'duedate'],
+  'CASE1:Task': ['priority', 'assignee', 'customfield_10200', 'parent', 'labels', 'duedate'],
+  'CASE1:Epic': ['priority', 'assignee', 'labels', 'duedate'],
+  'OPS:Bug': ['customfield_10300!', 'priority', 'assignee', 'parent', 'labels', 'components', 'environment'],
+  'OPS:Story': ['priority', 'assignee', 'parent', 'labels', 'components', 'duedate'],
+  'OPS:Task': ['priority', 'assignee', 'parent', 'labels', 'components', 'duedate'],
+  'OPS:Epic': ['priority', 'assignee', 'labels', 'duedate'],
+};
+const CORE = ['priority', 'assignee', 'parent', 'customfield_10020'];
+const TOP = { priority: 'priority', assignee: 'assignee', parent: 'parent', customfield_10020: 'sprint', labels: 'labels' };
+const SEED = {
+  'CASE-131': { customfield_10103: 'S2 Major', customfield_10101: 'ada', customfield_10102: 'rin', components: ['Intake'], fixVersions: ['2026.12'], environment: 'Staging, Chrome 131 on Windows 11', customfield_10105: 'Session > Timeout handling' },
+  'CASE-139': { customfield_10103: 'S1 Critical', customfield_10102: 'rin', components: ['Intake'] },
+  'CASE-117': { customfield_10103: 'S3 Minor', components: ['Review queue'] },
+  'CASE-128': { customfield_10101: 'milo', customfield_10102: 'rin', customfield_10016: 3, components: ['Intake'], fixVersions: ['2026.12'], customfield_10104: '- Typing a postcode lists the matching addresses.\n- Picking one fills the street and town.' },
+  'CASE-135': { customfield_10101: 'ada', customfield_10016: 5, components: ['Review queue'], duedate: '2026-11-27', customfield_10104: '- A reviewer reassigns a case from the queue.\n- The queue keeps its sort order.' },
+  'CASE-122': { customfield_10016: 3, components: ['Audit'] },
+  'CASE-143': { customfield_10016: 2, components: ['Audit'] },
+  'CASE-97': { customfield_10101: 'ada', customfield_10016: 3, components: ['Attachments'] },
+  'CASE-136': { customfield_10101: 'ada', duedate: '2026-11-25' },
+  'CASE-123': { components: ['Audit'] },
+  'CASE1-41': { customfield_10201: 'rin', customfield_10200: 5 },
+  'CASE1-47': { customfield_10200: 3 },
+  'CASE1-44': { customfield_10202: ['Chrome', 'Safari'] },
+  'CASE1-38': { customfield_10202: ['Firefox'], environment: 'Firefox 132 with NVDA' },
+  'OPS-14': { components: ['Backups'], duedate: '2026-11-21' },
+};
+ISSUES.forEach((i) => { i.f = SEED[i.key] || {}; });
+function screenOf(proj, type) {
+  return SCREENS[`${proj}:${type}`].map((s) => { const id = s.replace('!', ''); return { id, req: s.endsWith('!'), ...FIELDS[id] }; });
+}
+function val(i, id) { return TOP[id] ? i[TOP[id]] : i.f[id]; }
+function change(i, id, v) { return TOP[id] ? { [TOP[id]]: v } : { f: { ...i.f, [id]: v } }; }
+const blank = (v) => v == null || v === '' || (Array.isArray(v) && !v.length);
 function issueByKey(k) { return ISSUES.find((i) => i.key === k); }
 
 const M = window.MOCK || {};
@@ -261,6 +325,7 @@ const state = {
   expanded: { CASE: true, CASE1: true },
   collapsed: {},
   editing: null,
+  showEmpty: false,
   descTab: 'write',
   modal: null,
   pending: {},
@@ -801,6 +866,86 @@ function fromMd(md) {
   return out;
 }
 
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function fmtDate(d) {
+  const [y, m, dd] = d.split('-');
+  return `${MON[+m - 1]} ${+dd}${y === '2026' ? '' : `, ${y}`}`;
+}
+function fmtVal(proj, F, v) {
+  const none = (t = 'None') => `<span class="muted">${t}</span>`;
+  if (F.kind === 'priority') return `${priorityIcon(v)}<span>${PRIORITIES[v]}</span>`;
+  if (F.kind === 'user') return v ? `${avatar(v)}<span class="ell">${esc(PEOPLE[v].name)}</span>` : `${avatar(null)}${none(F.assignable ? 'Unassigned' : 'None')}`;
+  if (F.kind === 'epic') return v ? `${typeIcon('Epic')}<span class="ell">${esc(issue(v).summary)}</span>` : none();
+  if (F.kind === 'sprint') {
+    const sp = v && (project(proj).board.sprints || []).find((x) => x.id === v);
+    return sp ? `<span class="ell">${esc(sp.name)}</span>${sp.state === 'active' ? '<span class="muted sm">active</span>' : ''}` : none('Backlog');
+  }
+  if (F.kind === 'labels' || F.kind === 'multi') return blank(v) ? none() : v.map((x) => `<span class="label">${esc(x)}</span>`).join('');
+  if (F.kind === 'select') return v ? `<span class="ell">${esc(v)}</span>` : none();
+  if (F.kind === 'number') return v == null ? none() : `<span>${v}</span>`;
+  if (F.kind === 'date') return v ? `<span>${fmtDate(v)}</span>` : none();
+  if (F.kind === 'cascade') return `${v ? `<span class="ell">${esc(v)}</span>` : none()}<span class="lk">${I.lock}</span>`;
+  return '';
+}
+function fieldPicker(anchor, kind, proj, F, get, set) {
+  const base = { kind, title: F.name, placeholder: `Find ${F.name.toLowerCase()}` };
+  const single = (options) => openPicker(anchor, { ...base, multi: false, options, isOn: (v) => (get() ?? null) === v, onPick: set });
+  const many = (options, extra = {}) => openPicker(anchor, {
+    ...base, multi: true, options, ...extra,
+    isOn: (v) => (get() || []).includes(v), selected: () => (get() || []).length,
+    toggle: (v) => { if (v == null) return; const cur = get() || []; set(cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]); },
+    clear: () => set([]),
+  });
+  const noneItem = (t) => ({ v: null, text: `none ${t}`, html: `<span class="muted">${t}</span>` });
+  if (F.kind === 'user') {
+    return single(() => [{ v: null, text: 'none unassigned', html: `${avatar(null)}<span class="muted">${F.assignable ? 'Unassigned' : 'None'}</span>` }]
+      .concat(Object.entries(PEOPLE).map(([k, x]) => ({ v: k, text: x.name, group: F.assignable ? `Can be assigned in ${proj}` : `People on ${SITE}`, html: `${avatar(k)}<span class="ell">${esc(x.name)}</span>` }))));
+  }
+  if (F.kind === 'priority') return single(() => PRIORITIES.map((x, n) => ({ v: n, text: x, html: `${priorityIcon(n)}<span>${x}</span>` })));
+  if (F.kind === 'epic') {
+    return single(() => [noneItem('No epic')].concat(epicsOf(proj).filter((e) => cat(e.status) !== 'done')
+      .map((e) => ({ v: e.key, text: `${e.key} ${e.summary}`, group: `Open epics in ${proj}`, html: `${typeIcon('Epic')}<span class="id">${e.key}</span><span class="ell">${esc(e.summary)}</span>${statusIcon(e.status, 12)}` }))));
+  }
+  if (F.kind === 'sprint') {
+    return single(() => [noneItem('Backlog')].concat((project(proj).board.sprints || [])
+      .map((x) => ({ v: x.id, text: x.name, group: 'Active and future sprints', html: `<span class="ell">${esc(x.name)}</span><span class="muted sm">${x.state === 'active' ? 'active · ' : ''}${esc(x.dates)}</span>` }))));
+  }
+  if (F.kind === 'select') return single(() => [noneItem('None')].concat(F.options(proj).map((x) => ({ v: x, text: x, html: `<span>${esc(x)}</span>` }))));
+  if (F.kind === 'multi') return many(() => F.options(proj).map((x) => ({ v: x, text: x, html: `<span class="ell">${esc(x)}</span>` })));
+  if (F.kind === 'labels') {
+    return many(() => {
+      const q = (PK?.q || '').trim();
+      const known = [...new Set([...ISSUES.flatMap((x) => x.labels), ...(get() || [])])].sort();
+      const out = known.map((l) => ({ v: l, text: l, group: `Labels on ${SITE}`, html: `<span class="label">${esc(l)}</span>` }));
+      if (q && !known.includes(q)) {
+        out.push(/\s/.test(q)
+          ? { v: null, text: q, html: '<span class="muted">A label can\'t contain spaces</span>' }
+          : { v: q, text: q, group: 'New label', html: `${I.plus}<span>Create <b>${esc(q)}</b></span>` });
+      }
+      return out;
+    }, { placeholder: 'Find or create a label' });
+  }
+  return undefined;
+}
+function fieldRow(i, F) {
+  const v = val(i, F.id);
+  if (state.editing === `fld:${F.id}`) {
+    return `<div class="prop"><span class="k">${esc(F.name)}</span><span class="v"><input class="prop-in" type="${F.kind}" ${F.kind === 'number' ? 'step="any" min="0"' : ''} data-fin="${F.id}" value="${v ?? ''}" aria-label="${esc(F.name)}"></span></div>`;
+  }
+  const wrap = F.kind === 'labels' || F.kind === 'multi' ? 'wrap' : '';
+  const ctl = F.kind === 'cascade'
+    ? `class="v locked" data-act="browser" data-key="${i.key}" title="${esc(F.name)} is a cascading select. Edit it in the browser."`
+    : `class="v edit ${wrap}" data-pick="fld:${F.id}" title="Change ${esc(F.name.toLowerCase())}"`;
+  return `<div class="prop"><span class="k" title="${esc(F.name)}">${esc(F.name)}</span><span ${ctl}>${fmtVal(i.proj, F, v)}</span></div>`;
+}
+function mdEditor(initial) {
+  const src = $('#d-src')?.value ?? initial;
+  return `<div class="editor">
+      <div class="ed-tabs"><span class="ed-tab ${state.descTab === 'write' ? 'on' : ''}" data-dtab="write">Write</span><span class="ed-tab ${state.descTab === 'preview' ? 'on' : ''}" data-dtab="preview">Preview</span><span class="spacer"></span><span class="hint">Markdown</span></div>
+      ${state.descTab === 'write' ? `<textarea id="d-src" spellcheck="true">${esc(src)}</textarea>` : `<textarea id="d-src" hidden>${esc(src)}</textarea><div class="md preview">${renderMd(fromMd(src), state.openId)}</div>`}
+      <div class="ed-foot"><span class="hint">Saved to Jira as rich text.</span><span class="spacer"></span><button class="btn" data-act="cancel-desc">Cancel</button><button class="btn-primary sm" data-act="save-desc">Save <kbd>Ctrl Enter</kbd></button></div>
+    </div>`;
+}
 function prop(k, v, pick) {
   return `<div class="prop"><span class="k">${k}</span><span class="v ${pick ? 'edit' : ''}" ${pick ? `data-pick="${pick}" title="Change ${k.toLowerCase()}"` : ''}>${v}</span></div>`;
 }
@@ -818,12 +963,7 @@ function renderDetail() {
   const locked = unsupportedIn(i.desc);
   let desc;
   if (state.editing === 'desc') {
-    const src = $('#d-src')?.value ?? toMd(i.desc);
-    desc = `<div class="editor">
-      <div class="ed-tabs"><span class="ed-tab ${state.descTab === 'write' ? 'on' : ''}" data-dtab="write">Write</span><span class="ed-tab ${state.descTab === 'preview' ? 'on' : ''}" data-dtab="preview">Preview</span><span class="spacer"></span><span class="hint">Markdown</span></div>
-      ${state.descTab === 'write' ? `<textarea id="d-src" spellcheck="true">${esc(src)}</textarea>` : `<textarea id="d-src" hidden>${esc(src)}</textarea><div class="md preview">${renderMd(fromMd(src), i.key)}</div>`}
-      <div class="ed-foot"><span class="hint">Saved to Jira as rich text.</span><span class="spacer"></span><button class="btn" data-act="cancel-desc">Cancel</button><button class="btn-primary sm" data-act="save-desc">Save <kbd>Ctrl Enter</kbd></button></div>
-    </div>`;
+    desc = `<div class="sub-head">Description</div>${mdEditor(toMd(i.desc))}`;
   } else {
     const head = `<div class="sub-head">Description<span class="spacer"></span>${locked.length
       ? `<span class="lock-note" title="Editing here would drop them">${I.lock}Holds ${locked.join(' and ')}. Edit in the browser.</span>`
@@ -840,24 +980,38 @@ function renderDetail() {
       ${kids.map((k) => `<div class="child-row ${state.pending[k.key] ? 'pending' : ''}" data-open="${k.key}">${typeIcon(k.type)}<span class="id">${k.key}</span>${statusIcon(k.status)}<span class="title">${esc(k.summary)}</span>${avatar(k.assignee)}<button class="icon-btn x" data-act="unlink" data-key="${k.key}" title="Remove from this epic">${I.close}</button></div>`).join('')
       || '<p class="no-desc">No issues in this epic yet. Add an existing Bug, Story or Task, or create one.</p>'}`;
   }
-  $('#d-main').innerHTML = title + desc + children;
+  const sc = screenOf(i.proj, i.type);
+  const paras = sc.filter((F) => F.kind === 'para').map((F) => {
+    const v = val(i, F.id);
+    const ed = state.editing === `para:${F.id}`;
+    return `<div class="sub-head">${esc(F.name)}<span class="spacer"></span>${ed ? '' : `<button class="btn sm" data-act="edit-para" data-fid="${F.id}">${v ? 'Edit' : 'Add'}</button>`}</div>`
+      + (ed ? mdEditor(v || '') : v ? `<div class="md">${renderMd(fromMd(v), i.key)}</div>` : '<p class="no-desc">Empty</p>');
+  }).join('');
+  $('#d-main').innerHTML = title + desc + paras + children;
   const name = (k) => k ? `${avatar(k)}${esc(PEOPLE[k].name)}` : `${avatar(null)}<span class="muted">Unassigned</span>`;
+  const side = sc.filter((F) => F.kind !== 'para');
+  const core = side.filter((F) => CORE.includes(F.id));
+  const rest = side.filter((F) => !CORE.includes(F.id));
+  const shown = rest.filter((F) => !blank(val(i, F.id)) || state.editing === `fld:${F.id}`);
+  const empty = rest.filter((F) => !shown.includes(F));
+  const emptyPart = !empty.length ? '' : state.showEmpty
+    ? empty.map((F) => fieldRow(i, F)).join('') + '<div class="more-f" data-act="toggle-empty">Hide empty fields</div>'
+    : `<div class="more-f" data-act="toggle-empty" title="${esc(empty.map((F) => F.name).join(', '))}">${empty.length} empty field${empty.length === 1 ? '' : 's'}</div>`;
   $('#d-props').innerHTML =
     prop('Status', `${statusIcon(i.status)}${esc(i.status)}`, 'status') +
-    prop('Assignee', name(i.assignee), 'assignee') +
-    prop('Priority', `${priorityIcon(i.priority)}${PRIORITIES[i.priority]}`, 'priority') +
-    (isEpic(i) ? '' : prop('Epic', i.parent ? `${typeIcon('Epic')}<span class="ell">${esc(issue(i.parent).summary)}</span>` : '<span class="muted">None</span>', 'epic')) +
+    core.map((F) => fieldRow(i, F)).join('') +
+    (shown.length || empty.length ? `<hr>${shown.map((F) => fieldRow(i, F)).join('')}${emptyPart}` : '') +
     '<hr>' +
-    `<div class="prop"><span class="k">Labels</span><span class="v wrap" title="Labels are read-only in this release">${i.labels.length ? i.labels.map((l) => `<span class="label">${esc(l)}</span>`).join('') : '<span class="muted">None</span>'}</span></div>` +
     prop('Type', `${typeIcon(i.type)}${i.type}`) +
     prop('Reporter', name('ada')) +
     prop('Project', `${projDot(p.key)}<span class="ell">${esc(p.name)}</span>`) +
     '<hr>' +
     prop('Created', '<span class="muted">Nov 2</span>') +
     prop('Updated', `<span class="muted">${i.updated === 'now' ? 'just now' : i.updated + ' ago'}</span>`) +
-    '<div class="keys"><span class="kbd">S</span> status <span class="kbd">A</span> assignee <span class="kbd">P</span> priority' + (isEpic(i) ? '' : ' <span class="kbd">E</span> epic') + '</div>';
+    '<div class="keys"><span class="kbd">S</span> status <span class="kbd">A</span> assignee <span class="kbd">P</span> priority' + (isEpic(i) ? '' : ' <span class="kbd">E</span> epic') + ' <span class="kbd">L</span> labels</div>';
   if (state.editing === 'summary') { const t = $('#t-in'); t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
-  if (state.editing === 'desc' && state.descTab === 'write') $('#d-src').focus();
+  if ((state.editing === 'desc' || state.editing?.startsWith('para:')) && state.descTab === 'write') $('#d-src').focus();
+  if (state.editing?.startsWith('fld:')) $('.prop-in')?.focus();
 }
 
 function renderModal() {
@@ -868,22 +1022,50 @@ function renderModal() {
   const p = project();
   const md = state.modal;
   const types = md.fromEpic ? STANDARD : [...STANDARD, 'Epic'];
-  const opt = (v, label, cur) => `<option value="${v}" ${cur ? 'selected' : ''}>${esc(label)}</option>`;
-  const lands = p.board.type === 'scrum' ? 'It lands in the backlog.' : `It starts in ${p.initial}.`;
   m.innerHTML = `<form class="modal" id="create-form" novalidate>
     <div class="modal-head">${projDot(p.key)}<span>${esc(p.name)}</span><span class="sep">›</span><span id="m-kind">New ${md.type === 'Epic' ? 'epic' : 'issue'}</span><span class="spacer"></span><button type="button" class="icon-btn" data-act="close-modal" title="Close (Esc)">${I.close}</button></div>
     <div class="seg type-seg">${types.map((t) => `<label class="seg-i ${md.type === t ? 'on' : ''}"><input type="radio" name="type" value="${t}" ${md.type === t ? 'checked' : ''}>${typeIcon(t, 12)}${t}</label>`).join('')}</div>
     <input class="m-title" id="c-summary" name="summary" placeholder="Summary" autocomplete="off">
     <textarea class="m-desc" name="desc" placeholder="Description, in Markdown"></textarea>
-    <div class="m-props">
-      <label>Priority<select name="priority">${PRIORITIES.map((x, n) => opt(n, x, n === 2)).join('')}</select></label>
-      <label>Assignee<select name="assignee">${opt('', 'Unassigned', true)}${Object.entries(PEOPLE).map(([k, v]) => opt(k, v.name)).join('')}</select></label>
-      <label class="epic-field" ${md.type === 'Epic' ? 'hidden' : ''}>Epic<select name="parent">${opt('', 'None', !md.parent)}${epicsOf().filter((e) => cat(e.status) !== 'done').map((e) => opt(e.key, `${e.key} ${e.summary}`, e.key === md.parent)).join('')}</select></label>
-    </div>
+    <div class="m-fields" id="m-fields"></div>
     <div class="form-error" id="m-error"></div>
-    <div class="m-foot"><span class="hint">Created in ${p.key}. ${lands}</span><span class="spacer"></span><button type="button" class="btn" data-act="close-modal">Cancel</button><button type="submit" class="btn-primary" id="m-submit">Create <kbd>Ctrl Enter</kbd></button></div>
+    <div class="m-foot"><span class="hint" id="m-hint"></span><span class="spacer"></span><button type="button" class="btn" data-act="close-modal">Cancel</button><button type="submit" class="btn-primary" id="m-submit"></button></div>
   </form>`;
+  renderModalFields();
   $('#c-summary').focus();
+}
+function renderModalFields() {
+  const p = project();
+  const md = state.modal;
+  const sc = screenOf(p.key, md.type);
+  const stop = sc.find((F) => F.req && F.kind === 'cascade');
+  const cell = (F) => {
+    const v = md.v[F.id];
+    let ctl;
+    if (F.kind === 'number' || F.kind === 'date') ctl = `<input class="mf-in" type="${F.kind}" ${F.kind === 'number' ? 'step="any" min="0"' : ''} data-mf="${F.id}" value="${v ?? ''}" aria-label="${esc(F.name)}">`;
+    else if (F.kind === 'cascade') ctl = `<span class="mf-v locked" title="${esc(F.name)} is a cascading select. Fill it in the browser.">${I.lock}<span>Set in the browser</span></span>`;
+    else ctl = `<button type="button" class="mf-v" data-mpick="${F.id}">${fmtVal(p.key, F, F.kind === 'priority' ? v ?? 2 : v)}</button>`;
+    const bad = md.bad.includes(F.id);
+    return `<div class="mf ${bad ? 'bad' : ''}"><span class="k">${esc(F.name)}${F.req ? '<span class="req" title="Required">*</span>' : ''}</span>${ctl}${bad && md.err[F.id] ? `<span class="mf-err">${esc(md.err[F.id])}</span>` : ''}</div>`;
+  };
+  const para = (F) => `<label class="mf-para ${md.bad.includes(F.id) ? 'bad' : ''}"><span class="k">${esc(F.name)}${F.req ? '<span class="req">*</span>' : ''}</span><textarea data-mf="${F.id}" placeholder="${esc(F.name)}, in Markdown">${esc(md.v[F.id] || '')}</textarea></label>`;
+  $('#m-fields').innerHTML = `<div class="mf-src">Fields on the ${p.key} create screen for a ${md.type}${sc.some((F) => F.req) ? ' · <span class="req">*</span> required' : ''}</div>`
+    + sc.filter((F) => F.kind !== 'para').map(cell).join('')
+    + sc.filter((F) => F.kind === 'para').map(para).join('')
+    + (stop ? `<div class="unsupported mf-stop">${I.lock}<span><b>${esc(stop.name)}</b> is required on a ${md.type} in ${p.key}. It is a cascading select, which this app can't fill.</span><span class="open" data-act="create-browser">Create in the browser</span></div>` : '');
+  const onScreen = sc.some((F) => F.id === 'customfield_10020');
+  const sp = onScreen && md.v.customfield_10020 && p.board.sprints.find((x) => x.id === md.v.customfield_10020);
+  $('#m-hint').textContent = `Created in ${p.key}. ` + (p.board.type === 'scrum' ? (sp ? `It lands in ${sp.name}.` : 'It lands in the backlog.') : `It starts in ${p.initial}.`);
+  $('#m-submit').innerHTML = stop ? 'Create in the browser' : 'Create <kbd>Ctrl Enter</kbd>';
+}
+function modalPick(id, anchor) {
+  const md = state.modal;
+  fieldPicker(anchor, `m:${id}`, state.proj, { id, ...FIELDS[id] }, () => md.v[id], (v) => {
+    md.v[id] = v;
+    md.bad = md.bad.filter((x) => x !== id);
+    renderModalFields();
+    if (!md.bad.length && $('#c-summary').value.trim()) $('#m-error').classList.remove('show');
+  });
 }
 
 function renderSignin() {
@@ -936,7 +1118,10 @@ function write(i, change, opts = {}) {
   setTimeout(() => {
     delete state.pending[i.key];
     const mode = state.write;
-    if (mode === 'fail' || (mode === 'screen' && opts.transition)) {
+    if (mode === 'field' && opts.field) {
+      Object.assign(i, before);
+      toast(`${I.warn}<span>Jira refused <b>${esc(opts.field.name)}</b> on ${i.key}: “Specify a valid value for ${esc(opts.field.name)}.” Your change was undone.</span>`, 4200);
+    } else if (mode === 'fail' || (mode === 'screen' && opts.transition)) {
       Object.assign(i, before);
       toast(mode === 'fail'
         ? `${I.warn}<span>Couldn't save ${i.key}. Jira answered 500. Your change was undone.</span>`
@@ -1065,22 +1250,13 @@ function pick(kind, anchor) {
       .filter((x) => !x.disabled);
     return openMenu(anchor, `Move ${i.key} to`, items, (v) => setStatus(i, v));
   }
-  if (kind === 'assignee') {
-    const items = [{ value: null, html: `${avatar(null)}<span class="muted">Unassigned</span>`, current: !i.assignee }]
-      .concat(Object.entries(PEOPLE).map(([k, v]) => ({ value: k, html: `${avatar(k)}<span>${esc(v.name)}</span>`, current: i.assignee === k })));
-    return openMenu(anchor, 'Assign to someone who can be assigned in this project', items, (v) => write(i, { assignee: v }));
-  }
-  if (kind === 'priority') {
-    return openMenu(anchor, 'Priority', PRIORITIES.map((x, n) => ({ value: n, html: `${priorityIcon(n)}<span>${x}</span>`, current: i.priority === n })), (v) => write(i, { priority: v }));
-  }
-  if (kind === 'epic' && !isEpic(i)) {
-    return openPicker(anchor, {
-      kind, title: `Epic for ${i.key}`, placeholder: 'Find an epic by key or name', multi: false,
-      options: () => [{ v: null, html: '<span class="muted">No epic</span>', text: 'no epic none' }]
-        .concat(epicsOf(i.proj).filter((e) => cat(e.status) !== 'done').map((e) => ({ v: e.key, text: `${e.key} ${e.summary}`, group: `Open epics in ${i.proj}`, html: `${typeIcon('Epic')}<span class="id">${e.key}</span><span class="ell">${esc(e.summary)}</span>${statusIcon(e.status, 12)}` }))),
-      isOn: (v) => (i.parent || null) === v,
-      onPick: (v) => write(i, { parent: v }, { done: v ? `${i.key} is now in ${v}` : `${i.key} left its epic` }),
-    });
+  if (kind.startsWith('fld:')) {
+    const id = kind.slice(4);
+    const F = { id, ...FIELDS[id] };
+    if (F.kind === 'number' || F.kind === 'date') { state.editing = kind; return render(); }
+    if (F.kind === 'sprint') return fieldPicker(anchor, kind, i.proj, F, () => i.sprint, (v) => moveMany([i.key], v));
+    const done = id === 'parent' ? (v) => (v ? `${i.key} is now in ${v}` : `${i.key} left its epic`) : () => null;
+    return fieldPicker(anchor, kind, i.proj, F, () => val(i, id), (v) => write(i, change(i, id, v), { field: F, done: done(v) }));
   }
   if (kind === 'add-child' && isEpic(i)) {
     return openPicker(anchor, {
@@ -1163,7 +1339,7 @@ function newIssue(parent = null) {
   closeMenu();
   const eps = [...state.f.epic].filter((v) => v !== 'none');
   const filterEpic = state.view !== 'epics' && eps.length === 1 ? eps[0] : null;
-  state.modal = { type: state.view === 'epics' && !parent ? 'Epic' : 'Story', parent: parent || filterEpic, fromEpic: !!parent };
+  state.modal = { type: state.view === 'epics' && !parent ? 'Epic' : 'Story', fromEpic: !!parent, v: { priority: 2, parent: parent || filterEpic, labels: [] }, bad: [], err: {} };
   $('#modal').innerHTML = '';
   render();
 }
@@ -1173,39 +1349,65 @@ function closeModal() {
 }
 function submitCreate(e) {
   e?.preventDefault();
+  const p = project();
+  const md = state.modal;
+  const sc = screenOf(p.key, md.type);
+  if (sc.some((F) => F.req && F.kind === 'cascade')) return toast(`Opens Jira's create screen for a ${p.key} ${md.type} in your browser`);
   const f = new FormData($('#create-form'));
   const summary = String(f.get('summary')).trim();
   const err = $('#m-error');
-  if (!summary) {
-    $('#c-summary').classList.add('bad');
-    err.innerHTML = `${I.warn}<span>A summary is required.</span>`;
+  const missing = sc.filter((F) => F.req && blank(md.v[F.id]));
+  md.bad = missing.map((F) => F.id);
+  md.err = {};
+  $('#c-summary').classList.toggle('bad', !summary);
+  if (!summary || missing.length) {
+    const msgs = [];
+    if (!summary) msgs.push('A summary is required.');
+    if (missing.length) msgs.push(`${p.key} requires ${missing.map((F) => F.name).join(' and ')} on a ${md.type}.`);
+    err.innerHTML = `${I.warn}<span>${msgs.join(' ')}</span>`;
     err.classList.add('show');
+    renderModalFields();
     return;
   }
+  err.classList.remove('show');
+  renderModalFields();
   const btn = $('#m-submit');
   btn.disabled = true;
   btn.innerHTML = `<span class="icon-btn spin" style="width:auto;height:auto;color:#fff">${I.refresh}</span>Creating…`;
   setTimeout(() => {
+    btn.disabled = false;
     if (state.write === 'fail') {
-      btn.disabled = false;
       btn.innerHTML = 'Create <kbd>Ctrl Enter</kbd>';
       err.innerHTML = `${I.warn}<span>Jira answered 500. Nothing was created. Your text is still here.</span>`;
       err.classList.add('show');
       return;
     }
-    const p = project();
+    if (state.write === 'field') {
+      const F = sc.find((x) => x.id.startsWith('customfield_') && !blank(md.v[x.id])) || sc.find((x) => !CORE.includes(x.id)) || sc[0];
+      md.bad = [F.id];
+      md.err = { [F.id]: `Jira: Specify a valid value for ${F.name}.` };
+      renderModalFields();
+      err.innerHTML = `${I.warn}<span>Jira refused ${esc(F.name)}. Nothing was created. Fix the field and create again.</span>`;
+      err.classList.add('show');
+      return;
+    }
     const n = Math.max(...ISSUES.filter((i) => i.proj === p.key).map((i) => +i.key.split('-')[1])) + 1;
-    const type = f.get('type');
-    const md = String(f.get('desc')).trim();
+    const type = md.type;
+    const desc = String(f.get('desc')).trim();
+    const on = (id) => sc.some((F) => F.id === id);
+    const v = md.v;
     const created = {
-      key: `${p.key}-${n}`, proj: p.key, type, summary, status: p.initial, priority: +f.get('priority'),
-      assignee: f.get('assignee') || null, parent: type === 'Epic' ? null : f.get('parent') || null,
-      updated: 'now', desc: md ? fromMd(md) : null, sprint: null, labels: [],
+      key: `${p.key}-${n}`, proj: p.key, type, summary, status: p.initial, priority: on('priority') ? v.priority ?? 2 : 2,
+      assignee: on('assignee') ? v.assignee || null : null, parent: on('parent') ? v.parent || null : null,
+      updated: 'now', desc: desc ? fromMd(desc) : null, sprint: on('customfield_10020') ? v.customfield_10020 || null : null,
+      labels: on('labels') ? v.labels || [] : [], f: {},
     };
+    sc.forEach((F) => { if (!TOP[F.id] && !blank(v[F.id])) created.f[F.id] = v[F.id]; });
     ISSUES.push(created);
     state.modal = null;
     render();
-    toast(`Created <b>${created.key}</b><a class="lnk" data-open="${created.key}">Open</a>`, 4000);
+    const sp = created.sprint && p.board.sprints.find((x) => x.id === created.sprint);
+    toast(`Created <b>${created.key}</b>${sp ? ` in ${esc(sp.name)}` : ''}<a class="lnk" data-open="${created.key}">Open</a>`, 4000);
   }, 700);
 }
 
@@ -1259,6 +1461,8 @@ document.addEventListener('click', (e) => {
   const mi = e.target.closest('[data-mi]');
   if (mi && menuPick) { const f = menuPick; closeMenu(); f(+mi.dataset.mi); return; }
   if (e.target.id === 'modal') return closeModal();
+  const mp = e.target.closest('[data-mpick]');
+  if (mp) return `m:${mp.dataset.mpick}` === pkJustClosed ? undefined : modalPick(mp.dataset.mpick, mp);
   const act = e.target.closest('[data-act]');
   if (act) {
     const a = act.dataset.act;
@@ -1283,7 +1487,16 @@ document.addEventListener('click', (e) => {
     if (a === 'edit-summary') { state.editing = 'summary'; render(); }
     if (a === 'edit-desc') { state.editing = 'desc'; state.descTab = 'write'; render(); }
     if (a === 'cancel-desc') { state.editing = null; render(); }
-    if (a === 'save-desc' && i) { const md = $('#d-src').value; state.editing = null; write(i, { desc: md.trim() ? fromMd(md) : null }); }
+    if (a === 'save-desc' && i) {
+      const md = $('#d-src').value;
+      const ed = state.editing;
+      state.editing = null;
+      if (ed === 'desc') write(i, { desc: md.trim() ? fromMd(md) : null });
+      else { const id = ed.slice(5); write(i, change(i, id, md.trim() || null), { field: { id, ...FIELDS[id] } }); }
+    }
+    if (a === 'edit-para') { state.editing = `para:${act.dataset.fid}`; state.descTab = 'write'; render(); }
+    if (a === 'toggle-empty') { state.showEmpty = !state.showEmpty; render(); }
+    if (a === 'create-browser') toast(`Opens Jira's create screen for a ${state.proj} ${state.modal.type} in your browser`);
     if (a === 'unlink') { e.stopPropagation(); write(issue(act.dataset.key), { parent: null }, { done: `${act.dataset.key} left ${state.openId}` }); }
     if (a === 'to-board') {
       const x = issue(act.dataset.key);
@@ -1322,6 +1535,12 @@ document.addEventListener('click', (e) => {
 
 document.addEventListener('input', (e) => {
   if (e.target.id === 'pk-q' && PK) { PK.q = e.target.value; PK.hl = 0; return renderPicker(); }
+  const mf = e.target.dataset?.mf;
+  if (mf && state.modal) {
+    const x = e.target.value;
+    state.modal.v[mf] = FIELDS[mf].kind === 'number' ? (x === '' ? null : +x) : x || null;
+    return;
+  }
   if (e.target.id !== 'q') return;
   state.q = e.target.value;
   state.sel = 0;
@@ -1332,10 +1551,24 @@ document.addEventListener('change', (e) => {
     const t = e.target.value;
     state.modal.type = t;
     document.querySelectorAll('.type-seg .seg-i').forEach((l) => l.classList.toggle('on', l.querySelector('input').value === t));
-    $('.epic-field').hidden = t === 'Epic';
     $('#m-kind').textContent = t === 'Epic' ? 'New epic' : 'New issue';
+    state.modal.bad = [];
+    renderModalFields();
   }
+  if (e.target.dataset?.fin) commitField(e.target);
 });
+
+function commitField(el) {
+  const id = el.dataset.fin;
+  if (state.editing !== `fld:${id}`) return;
+  const i = issue(state.openId);
+  const F = { id, ...FIELDS[id] };
+  const x = el.value;
+  const v = F.kind === 'number' ? (x === '' ? null : +x) : x || null;
+  state.editing = null;
+  if (v === (val(i, id) ?? null)) return render();
+  write(i, change(i, id, v), { field: F });
+}
 
 document.addEventListener('dragstart', (e) => {
   const r = e.target.closest?.('.row[draggable]');
@@ -1402,8 +1635,9 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
     if (state.modal) { e.preventDefault(); return submitCreate(); }
-    if (state.editing === 'desc') { e.preventDefault(); return document.querySelector('[data-act=save-desc]').click(); }
+    if (state.editing === 'desc' || state.editing?.startsWith('para:')) { e.preventDefault(); return document.querySelector('[data-act=save-desc]').click(); }
   }
+  if (e.target.dataset?.fin && e.key === 'Enter') { e.preventDefault(); return commitField(e.target); }
   if (e.target.id === 't-in' && e.key === 'Enter') {
     const v = e.target.value.trim();
     const i = issue(state.openId);
@@ -1428,9 +1662,9 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  if (state.openId && ['s', 'a', 'p', 'e'].includes(k)) {
-    const kind = { s: 'status', a: 'assignee', p: 'priority', e: 'epic' }[k];
-    const anchor = document.querySelector(`#d-props [data-pick=${kind}]`);
+  if (state.openId && ['s', 'a', 'p', 'e', 'l'].includes(k)) {
+    const kind = { s: 'status', a: 'fld:assignee', p: 'fld:priority', e: 'fld:parent', l: 'fld:labels' }[k];
+    const anchor = document.querySelector(`#d-props [data-pick="${kind}"]`);
     if (anchor) { e.preventDefault(); pick(kind, anchor); }
     return;
   }
