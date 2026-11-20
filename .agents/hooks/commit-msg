@@ -6,4 +6,18 @@ set -eu
 
 root=$(git rev-parse --show-toplevel)
 
-# No installed skill declares a commit-msg hook.
+if [ -z "${STABLEMATE_CACHE_DIR:-}" ]; then
+  case $(uname -s) in
+    Darwin) STABLEMATE_CACHE_DIR="$HOME/Library/Caches/stablemate" ;;
+    MINGW*|MSYS*|CYGWIN*) STABLEMATE_CACHE_DIR="${LOCALAPPDATA:-}/stablemate/stablemate/Cache" ;;
+    *) STABLEMATE_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/stablemate" ;;
+  esac
+fi
+export STABLEMATE_CACHE_DIR
+
+# commit-and-push
+for gate in "$root/.agents/policies/commit-and-push/scripts/check_commit_message.py"; do
+  [ -f "$gate" ] || continue
+  python3 "$gate" "$@"
+  break
+done
