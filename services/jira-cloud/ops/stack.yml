@@ -1,7 +1,0 @@
-services:
-  fake-jira:
-    about: the local fake Jira, `cargo xtask fake-jira --port 8787`, serving FakeJira's mockup world over the requests the app makes
-    define: services/fake-jira.yml.j2
-    address: jira
-    port: 8787
-    host-port: 8787

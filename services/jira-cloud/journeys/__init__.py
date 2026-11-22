@@ -1,6 +1,0 @@
-from .manage_epics_in_a_project import ManageEpicsInAProject
-from .manage_issues_in_a_project import ManageIssuesInAProject
-from .sign_in_to_a_jira_site import SignInToAJiraSite
-from .work_on_the_project_board import WorkOnTheProjectBoard
-
-ALL = (SignInToAJiraSite, ManageIssuesInAProject, ManageEpicsInAProject, WorkOnTheProjectBoard)
