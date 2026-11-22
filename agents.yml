@@ -35,6 +35,8 @@ packs:
   - rust
 
 # Individual selections ADDED on top of what the packs pull in (globs allowed).
+skills:
+  - repo/commit
 # skills:
 #   - planning/*
 # prompts:
